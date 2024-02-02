@@ -1,0 +1,36 @@
+{
+    "name": "navaiguide-ts",
+    "version": "0.0.1",
+    "description": "NavAIGuide: Extensible components toolkit for integrating LLM Web Agents and Browser Companions, enhancing web interfaces with intelligent AI capabilities.",
+    "engines": {
+      "node": ">=18"
+    },
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/francedot/navaiguide"
+    },
+    "publishConfig": {
+      "access": "public"
+    },
+    "dependencies": {
+      "cheerio": "^1.0.0-rc.12",
+      "html-entities": "^2.4.0"
+    },
+    "devDependencies": {
+      "@playwright/test": "^1.41.2",
+      "@types/node": "^20.11.16"
+    },
+    "scripts": {
+      "build": "tsc"
+    },
+    "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
+    "license": "MIT",
+    "files": ["lib"],
+    "exports": {
+      ".": "./lib/index.js"
+    },
+    "main": "./lib/index.js",
+    "types": "lib/index.d.ts",
+    "keywords": ["langchain", "llm", "web", "AI"]
+  }
+  
