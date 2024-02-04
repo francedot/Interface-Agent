@@ -1,13 +1,13 @@
 {
     "name": "navaiguide-ts",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "NavAIGuide: Extensible components toolkit for integrating LLM Web Agents and Browser Companions, enhancing web interfaces with intelligent AI capabilities.",
     "engines": {
       "node": ">=18"
     },
     "repository": {
       "type": "git",
-      "url": "https://github.com/francedot/navaiguide"
+      "url": "https://github.com/francedot/navaiguide-ts"
     },
     "publishConfig": {
       "access": "public"

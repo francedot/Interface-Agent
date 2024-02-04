@@ -4,7 +4,7 @@
   <a href="/"><img src="https://img.shields.io/badge/typescript-gray?logo=typescript" alt="Typescript"></a>
   <a href="/"><img src="https://img.shields.io/badge/node-20_LTS-blue" /></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
-  <a href="https://www.npmjs.com/package/navaiguide-ts"><img src="https://img.shields.io/badge/v.-0.0.2--preview_-green" /></a>
+  <a href="https://www.npmjs.com/package/navaiguide-ts"><img src="https://img.shields.io/badge/v.-0.0.3--preview_-green" /></a>
 </p>
 
 <p align="center">
