@@ -1,6 +1,6 @@
 {
     "name": "navaiguide-ts",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "NavAIGuide: Extensible components toolkit for integrating LLM Web Agents and Browser Companions, enhancing web interfaces with intelligent AI capabilities.",
     "engines": {
       "node": ">=18"
