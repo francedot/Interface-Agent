@@ -4,7 +4,7 @@
   <a href="/"><img src="https://img.shields.io/badge/typescript-gray?logo=typescript" alt="Typescript"></a>
   <a href="/"><img src="https://img.shields.io/badge/node-20_LTS-blue" /></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
-  <a href="https://www.npmjs.com/package/navaiguide-ts"><img src="https://img.shields.io/badge/v.-0.0.1--preview_-green" /></a>
+  <a href="https://www.npmjs.com/package/navaiguide-ts"><img src="https://img.shields.io/badge/v.-0.0.2--preview_-green" /></a>
 </p>
 
 <p align="center">
@@ -37,15 +37,15 @@ You can use npm, yarn, or pnpm to install NavAIGuide
 
 ### npm:
 ```bash
-  npm install naviguide-ts
+  npm install navaiguide-ts
   // With Playwright:
-  npm install --dev "@playwright/test"
+  npm install --save-dev "@playwright/test"
   npx playwright install
 ```
 
 ### Yarn:
 ```bash
-  yarn add naviguide-ts
+  yarn add navaiguide-ts
   // With Playwright:
   yarn add --dev "@playwright/test"
   npx playwright install
@@ -84,7 +84,7 @@ The `NavAIGuideAgent` base class orchestrates the process of performing and reas
 #### Example Playwright Agent scenario:
 ```typescript
 import { Page } from "@playwright/test";
-import { PlaywrightAgent } from "naviguide-ts";
+import { PlaywrightAgent } from "navaiguide-ts";
 
 let navAIGuideAgent = new PlaywrightAgent({
   page: playwrightPage
@@ -107,6 +107,7 @@ for (const result of results) {
 ### NavAIGuide Core Functionalities
 
 ```typescript
+import { NavAIGuide } from "navaiguide-ts";
 let navAIGuide: NavAIGuide = new NavAIGuide({
     openAIApiKey: "API_KEY", // if not provided as process.env
 });
