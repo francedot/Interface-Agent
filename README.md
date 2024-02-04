@@ -17,7 +17,7 @@
 
 # 🤔 What is NavAIGuide?
 
-**NavAIGuide** is a TypeScript Extensible components toolkit for integrating LLMs into Navigation Agents and Browser Companions. Key features include:
+**NavAIGuide** (/næv eɪ aɪ ɡaɪd/) is a TypeScript Extensible components toolkit for integrating LLMs into Navigation Agents and Browser Companions. Key features include:
 - **Natural Language Task Detection:** Supports both visual (using GPT-4V) and textual modes to identify tasks from web pages.
 - **Automation Code Generation:** Automates the creation of code for predicted tasks with options for Playwright (requires Node) or native JavaScript Browser APIs.
 - **Visual Grounding:** Enhances the accuracy of locating visual elements on web pages for better interaction.
