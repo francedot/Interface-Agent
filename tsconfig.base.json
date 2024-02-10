@@ -1,10 +1,14 @@
 {
   "compilerOptions": {
-    "outDir": "./lib",           // Output directory for JavaScript files
-    "rootDir": "./src",           // Source directory
+    "outDir": "./lib",
+    "rootDir": "./",
+    "baseUrl": ".",
+    "paths": {
+      "navaiguide/*": ["src/*"]
+    },
     "target": "ES2021",
     "lib": ["ES2021", "DOM"],
-    "module": "CommonJS",         // Set to "CommonJS" for CommonJS output
+    "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "declaration": true,
@@ -15,9 +19,9 @@
     "useDefineForClassFields": true,
     "strictPropertyInitialization": false,
     "allowJs": true,
-    "strict": false,              // Set to true for stricter type-checking if needed
+    "strict": false,
     "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/tests", "src/ui-tests", "src/assets"]
+  "include": ["**/*"],
+  "exclude": ["node_modules", "lib", "tests"]
 }
