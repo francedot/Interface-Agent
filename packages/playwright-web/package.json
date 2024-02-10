@@ -1,0 +1,37 @@
+{
+    "name": "@navaiguide/playwright-web",
+    "version": "0.1.0",
+    "description": "Playwright integration for NavAIGuide, enabling powerful web automation and testing capabilities.",
+    "main": "lib/index.js",
+    "types": "lib/index.d.ts",
+    "scripts": {
+      "build": "tsc",
+      "test": "jest",
+      "lint": "eslint 'src/**/*.{js,ts}'",
+      "format": "prettier --write 'src/**/*.{js,ts,json}'",
+      "prepare": "yarn run build"
+    },
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/francedot/navaiguide-monorepo"
+    },
+    "keywords": [
+      "navaiguide",
+      "playwright",
+      "llm",
+      "web",
+      "AI",
+      "langchain",
+      "gpt",
+      "chatgpt"
+    ],
+    "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
+    "license": "MIT",
+    "dependencies": {
+      "@navaiguide/core": "^0.1.0",
+      "@playwright/test": "^1.41.2"
+    },
+    "devDependencies": {
+    }
+  }
+  
