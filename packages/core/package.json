@@ -14,6 +14,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build=proj": "tsc",
     "test": "jest",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "format": "prettier --write 'src/**/*.{js,ts,json}'",
