@@ -13,7 +13,7 @@ import { getInstalledApps } from "./appium-ios-utils";
  * The AppiumiOSAgent class orchestrates the process of performing and reasoning about actions on a mobile screen towards achieving a specified end goal.
  */
 export class AppiumiOSAgent extends NavAIGuideAgent {
-  private wdioBrowser: WebdriverIO.Browser;
+  private wdioClient: WebdriverIO.Browser;
   // private readonly runCodeActionMaxRetries = 3;
   private readonly appiumBaseUrl: string;
   private readonly appiumPort: number;
@@ -52,13 +52,19 @@ export class AppiumiOSAgent extends NavAIGuideAgent {
     // if go-ios not build throw error
     console.log(query);
 
-    this.wdioBrowser = await this.initWdioAsync();
+    // Initialize the Wdio client
+    this.wdioClient = await this.initWdioAsync();
 
     // Get installed apps
     const apps = await getInstalledApps();
     console.log(apps);
 
-    await this.wdioBrowser.activateApp("com.apple.Preferences");
+    const startTask = await this.navAIGuide.classifyStartTask({
+      prompt: "",
+      endGoal: query,
+    });
+
+    await this.wdioClient.activateApp("com.apple.Preferences");
 
     return [];
 

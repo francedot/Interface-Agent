@@ -6,11 +6,13 @@
   "types": "lib/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "build-go-ios": "chmod +x ./scripts/build-go-ios.sh && ./scripts/build-go-ios.sh",
     "test": "mocha",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "format": "prettier --write 'src/**/*.{js,ts,json}'",
     "prepare": "yarn run build",
-    "start": "node lib/index.js"
+    "start": "node lib/index.js",
+    "start-ios-daemon": "chmod +x ./scripts/start-ios-daemon.sh && ./scripts/start-ios-daemon.sh"
   },
   "repository": {
     "type": "git",
