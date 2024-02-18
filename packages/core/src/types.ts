@@ -207,6 +207,14 @@ interface Usage {
 /**
  * Interface representing the NL Starting Task.
  */
+export interface StartSource {
+  startPage: string;
+  startPageDescription: string;
+}
+
+/**
+ * Interface representing the NL Starting Task.
+ */
 export interface StartTask {
   startPage: string;
 }
@@ -264,6 +272,10 @@ export class NavAIGuidePage {
       })),
     };
   }
+}
+
+export interface NavAIGuideSource {
+
 }
 
 /**

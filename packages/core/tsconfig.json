@@ -1,9 +1,4 @@
 {
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "./lib",
-    "rootDir": "./src",
-    "types": ["jest"]
-  },
-  "include": ["src/**/*"]
+    "extends": "../../tsconfig.json",
+    "include": ["src/**/*"],
 }

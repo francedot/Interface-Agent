@@ -12,14 +12,14 @@ import {
   ActionFeedbackReasoningResult,
   GoalCheckReasoningResult,
 } from "./types";
-import { sPrompt_Generate_Code_Action } from "./prompts/generate-code-action";
-import { systemPrompt_Ground_WebPage_Aggregate, systemPrompt_Ground_WebPage_Chunk } from "./prompts/ground-webpage";
-import { sPrompt_Classifier_Start_Task } from "./prompts/classifier-start-task";
-import { sPrompt_Generate_Search_Query } from "./prompts/generate-search-query";
-import { sPrompt_Predict_Next_NL_Action } from "./prompts/predict-next-nl-action";
-import { sPrompt_Sort_Code_Actions_By_Relevance } from "./prompts/sort-relevant-code-actions";
-import { sPrompt_Reasoning_Action_Feedback } from "./prompts/reasoning-action-feedback";
-import { sPrompt_Reasoning_Goal_Check } from "./prompts/reasoning-goal-check";
+import { sPrompt_Generate_Code_Action } from "../../web/src/prompts/generate-code-action";
+import { systemPrompt_Ground_WebPage_Aggregate, systemPrompt_Ground_WebPage_Chunk } from "../../web/src/prompts/ground-webpage";
+// import { sPrompt_Classifier_Start_Task } from "./prompts/classifier-start-task";
+import { sPrompt_Generate_Search_Query } from "../../web/src/prompts/generate-search-query";
+// import { sPrompt_Predict_Next_NL_Action } from "./prompts/predict-next-nl-action";
+import { sPrompt_Sort_Code_Actions_By_Relevance } from "../../web/src/prompts/sort-relevant-code-actions";
+import { sPrompt_Reasoning_Action_Feedback } from "../../web/src/prompts/reasoning-action-feedback";
+import { sPrompt_Reasoning_Goal_Check } from "../../web/src/prompts/reasoning-goal-check";
 
 /**
  * NavAIGuide is a class that uses OpenAI to infer natural language tasks from a web page.
@@ -45,12 +45,14 @@ export class NavAIGuide {
    * @returns A promise resolving to a StartTask object representing the initial task inferred from the end goal.
    */
   public async classifyStartTask({
-    endGoal,
+    prompt,
+    endGoal
   }: {
+    prompt: string;
     endGoal: string;
   }): Promise<StartTask> {
     const startTaskResult = await this.client.generateText({
-      systemPrompt: sPrompt_Classifier_Start_Task,
+      systemPrompt: prompt,
       prompt: JSON.stringify({
         endGoal: endGoal,
       }),
@@ -67,14 +69,14 @@ export class NavAIGuide {
       console.error("Parsed content is not valid JSON");
     }
 
-    if (startTask.startPage === "https://www.bing.com") {
-      const generateSearchQueryResult = await this.generateSearchUrl({
-        endGoal,
-      });
-      startTask.startPage = generateSearchQueryResult.searchUrl;
-      // Encode spaces only in the search query
-      startTask.startPage = startTask.startPage.replaceAll(" ", "%20");
-    }
+    // if (startTask.startPage === "https://www.bing.com") {
+    //   const generateSearchQueryResult = await this.generateSearchUrl({
+    //     endGoal,
+    //   });
+    //   startTask.startPage = generateSearchQueryResult.searchUrl;
+    //   // Encode spaces only in the search query
+    //   // startTask.startPage = startTask.startPage.replaceAll(" ", "%20");
+    // }
 
     return startTask;
   }
@@ -89,11 +91,13 @@ export class NavAIGuide {
    * @returns A promise resolving to the next inferred NLAction.
    */
   public async predictNextNLAction({
+    prompt,
     page,
     endGoal,
     previousActions,
     mode = "visual",
   }: {
+    prompt: string;
     page: NavAIGuidePage;
     endGoal: string;
     previousActions?: NLAction[];
@@ -102,11 +106,13 @@ export class NavAIGuide {
     const result =
       mode === "visual"
         ? await this.predictNextNLAction_Visual({
+            prompt,
             page,
             endGoal,
             previousActions,
           })
         : await this.predictNextNLAction_Textual({
+            prompt,
             page,
             endGoal,
             previousActions,
@@ -454,17 +460,19 @@ export class NavAIGuide {
   }
 
   private async predictNextNLAction_Visual({
+    prompt,
     page,
     endGoal,
     previousActions,
   }: {
+    prompt: string,
     page: NavAIGuidePage;
     endGoal: string;
     previousActions?: NLAction[];
   }): Promise<NLAction> {
     const visualGroundingResult = await this.client.analyzeImage({
       base64Images: page.screens.map((screen) => screen.base64Value),
-      systemPrompt: sPrompt_Predict_Next_NL_Action("visual"),
+      systemPrompt: prompt,
       prompt: JSON.stringify({
         endGoal: endGoal,
         currentPageUrl: page.url,
@@ -489,10 +497,12 @@ export class NavAIGuide {
   }
 
   private async predictNextNLAction_Textual({
+    prompt,
     page,
     endGoal,
     previousActions,
   }: {
+    prompt: string;
     page: NavAIGuidePage;
     endGoal: string;
     previousActions?: NLAction[];
@@ -501,7 +511,7 @@ export class NavAIGuide {
       page.pageSummary = await this.generatePageSummary({ page }); 
     }
     const generateNextActionResult = await this.client.generateText({
-      systemPrompt: sPrompt_Predict_Next_NL_Action("textual"),
+      systemPrompt: prompt,
       prompt: JSON.stringify({
         endGoal: endGoal,
         currentPageUrl: page.url,
