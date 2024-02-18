@@ -401,8 +401,10 @@ FodyWeavers.xsd
 
 /.vscode
 
-.env.local
+**/.env.local
 
-playwright-report
+**/playwright-report
 
-test-results
+**/test-results
+
+**/.DS_Store
