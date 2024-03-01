@@ -407,4 +407,4 @@ FodyWeavers.xsd
 
 **/test-results
 
-**/.DS_Store
+.DS_Store
