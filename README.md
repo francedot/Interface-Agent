@@ -12,7 +12,8 @@
 </p>
 
 <p align="center">
-  <img align="center" src="https://github.com/francedot/NavAIGuide/assets/11706033/7cdd4f9f-7905-4b4a-967b-cabe34502789">
+  <img align="center" width="1280" src="https://github.com/francedot/NavAIGuide-TS/assets/11706033/bdc79ec6-c05c-4fb4-a01a-0a4b3b802ce9">
+  <img align="center" width="1280" src="https://github.com/francedot/NavAIGuide/assets/11706033/7cdd4f9f-7905-4b4a-967b-cabe34502789">
 </p>
 
 # 🤔 What is NavAIGuide?
