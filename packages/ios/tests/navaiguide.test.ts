@@ -1,11 +1,21 @@
-import { AppiumiOSAgent } from "../src/appium-ios-agent";
+import { spawn } from "child_process";
+import { iOSAgent } from "../src/ios-agent";
 
 describe("Appium-iOS Device Interaction Tests", function() {
 
-  let navAIGuideAgent: AppiumiOSAgent;
+  let navAIGuideAgent: iOSAgent;
 
   before(async function() {
-    navAIGuideAgent = new AppiumiOSAgent({
+
+    // const startiOSDaemon = spawn('./scripts/run-wda.sh', {
+    //   detached: true,
+    //   stdio: 'ignore'
+    // });
+    // startiOSDaemon.unref();
+
+    // await new Promise((resolve) => setTimeout(resolve, 10000));
+
+    navAIGuideAgent = new iOSAgent({
       appiumBaseUrl: 'http://127.0.0.1',
       appiumPort: 4723,
       iOSVersion: "17.3.0",
@@ -21,23 +31,61 @@ describe("Appium-iOS Device Interaction Tests", function() {
     // This runs after each test. Clean up resources, like closing the Appium session.
   });
 
-  const findResearchPaperQuery = "Help me view the research paper titled 'Set-of-Mark Prompting Unleashes Extraordinary Visual Grounding in GPT-4V' and download its pdf.";
-  it(findResearchPaperQuery, async function() {
-    // Perform assertions or checks here as necessary.
-    // Example: await expect(client).toHaveAppInstalled('com.apple.Preferences');
-    // Note: The above assertion depends on the assertion library being used.
-
+  const fitnessPlannerQuery = "I need some help for running a 30-day fitness challenge.";
+  it(fitnessPlannerQuery, async function() {
     const results = await navAIGuideAgent.runAsync({
-      query: findResearchPaperQuery
+      query: fitnessPlannerQuery
     });
-    
-    for (const result of results) {
-      console.log(result);
-    }
-
   });
 
-  // Additional tests would go here.
+  const musicNightPlannerQuery = "Let's plan a music night for this Saturday.";
+  it(musicNightPlannerQuery, async function() {
+    const results = await navAIGuideAgent.runAsync({
+      query: musicNightPlannerQuery
+    });
+  });
+
+  const wicklowTripPlannerQuery = "Let's plan a trip to Cork for this weekend.";
+  it(wicklowTripPlannerQuery, async function() {
+    const results = await navAIGuideAgent.runAsync({
+      query: wicklowTripPlannerQuery
+    });
+  });
+
+  const findLatestMGKQuery = "I'd like to listen the latest MGK single called 'don't let me go' on Spotify.";
+  it(findLatestMGKQuery, async function() {
+    const results = await navAIGuideAgent.runAsync({
+      query: findLatestMGKQuery
+    });
+  });
+
+  const sendMessageWhatsappQuery = "Send a message to friend on Instagram telling her 'Bella Ciao'";
+  it(sendMessageWhatsappQuery, async function() {
+    const results = await navAIGuideAgent.runAsync({
+      query: sendMessageWhatsappQuery
+    });
+  });
+
+  const turnOffLocationServiceQuery = "Turn off location services in iOS Settings.";
+  it(turnOffLocationServiceQuery, async function() {
+    const results = await navAIGuideAgent.runAsync({
+      query: turnOffLocationServiceQuery
+    });
+  });
+
+  const youtubeQuery = "Check the latest news on AI from 'Matt Wolfe' on YouTube.";
+  it(youtubeQuery, async function() {
+    const results = await navAIGuideAgent.runAsync({
+      query: youtubeQuery
+    });
+  });
+
+  const twitterQuery = "Check the latest news on AI from 'Matt Wolfe' on Twitter.";
+  it(twitterQuery, async function() {
+    const results = await navAIGuideAgent.runAsync({
+      query: twitterQuery
+    });
+  });
 
   after(async function() {
     // Cleanup code for the entire test suite, if any.

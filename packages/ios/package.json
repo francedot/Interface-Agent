@@ -12,7 +12,7 @@
     "format": "prettier --write 'src/**/*.{js,ts,json}'",
     "prepare": "yarn run build",
     "start": "node lib/index.js",
-    "start-ios-daemon": "chmod +x ./scripts/start-ios-daemon.sh && ./scripts/start-ios-daemon.sh"
+    "run-wda": "chmod +x ./scripts/run-wda.sh && ./scripts/run-wda.sh"
   },
   "repository": {
     "type": "git",

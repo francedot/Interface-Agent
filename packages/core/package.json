@@ -26,6 +26,8 @@
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
     "html-entities": "^2.4.0",
+    "image-size": "^1.1.1",
+    "jimp": "^0.22.10",
     "ts-node": "^10.9.2"
   },
   "files": [

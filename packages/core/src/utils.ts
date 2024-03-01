@@ -3,6 +3,10 @@ import fs from "fs";
 import { decode } from "html-entities";
 import * as path from "path";
 import { CheerioAPI, Element } from "cheerio";
+import sizeOf from 'image-size';
+import { BoundingBox, ScreenSize } from "./types";
+import Jimp from 'jimp';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Returns the value of the specified environment variable.
@@ -157,9 +161,30 @@ export function reduceHtmlDomWithChunks(dom: string): {
   const chunkMinTokens = 6500;
   const chunkMaxTokens = 7500;
 
-  const chunks = chunkifyHtmlDom(html, chunkMinTokens, chunkMaxTokens);
+  const chunks = chunkifyDom(html, chunkMinTokens, chunkMaxTokens);
   return {
     reducedDomContent: html,
+    chunks: chunks,
+  };
+}
+
+/**
+ * Reduces the DOM by removing non-essential elements and attributes,
+ * and minifies the HTML.
+ *
+ * @param dom - The HTML string representing the DOM.
+ * @returns A Promise that resolves to the reduced and minified HTML string.
+ */
+export function reduceXmlDomWithChunks(dom: string): {
+  reducedDomContent: string;
+  chunks: string[];
+} {
+  const chunkMinTokens = 6500;
+  const chunkMaxTokens = 7500;
+
+  const chunks = chunkifyDom(dom, chunkMinTokens, chunkMaxTokens);
+  return {
+    reducedDomContent: dom,
     chunks: chunks,
   };
 }
@@ -218,25 +243,25 @@ function minifyAndDecodeHtml($: cheerio.CheerioAPI) {
 /**
  * Splits the HTML document into chunks of a specified size.
  *
- * @param {string} htmlDom - The HTML document to chunkify.
+ * @param {string} dom - The HTML document to chunkify.
  * @param {number} minChunkTokenSize - The minimum size of a chunk in tokens.
  * @param {number} maxChunkTokenSize - The maximum size of a chunk in tokens.
  * @returns {string[]} An array of chunks.
  */
-function chunkifyHtmlDom(htmlDom: string, minChunkTokenSize: number, maxChunkTokenSize: number): string[] {
+function chunkifyDom(dom: string, minChunkTokenSize: number, maxChunkTokenSize: number): string[] {
   const minChunkSize = minChunkTokenSize * 4;
   const maxChunkSize = maxChunkTokenSize * 4;
 
-  if (minChunkSize >= maxChunkSize || htmlDom.length <= minChunkSize) {
-    return [htmlDom];
+  if (minChunkSize >= maxChunkSize || dom.length <= minChunkSize) {
+    return [dom];
   }
 
   const chunks: string[] = [];
   let currentIndex = 0;
 
-  while (currentIndex < htmlDom.length) {
-    let nextChunkBoundary = findNextChunkBoundary(htmlDom, currentIndex, minChunkSize, maxChunkSize);
-    let chunk = htmlDom.substring(currentIndex, nextChunkBoundary);
+  while (currentIndex < dom.length) {
+    let nextChunkBoundary = findNextChunkBoundary(dom, currentIndex, minChunkSize, maxChunkSize);
+    let chunk = dom.substring(currentIndex, nextChunkBoundary);
 
     chunks.push(chunk);
     currentIndex = nextChunkBoundary;
@@ -371,11 +396,177 @@ export async function asyncEval(
 export async function tryAsyncEval(
   context = {},
   codeString: string,
-): Promise<[boolean, any]> {
+): Promise<boolean> {
   try {
-    const result = await asyncEval(context, codeString);
-    return [true, result];
+    await asyncEval(context, codeString);
+    return true;
   } catch (error) {
-    return [false, null];
+    return false;
   }
+}
+
+/**
+ * Gets the dimensions of an image from a base64 string.
+ *
+ * @param base64String - The base64 string of the image.
+ * @returns A Promise that resolves to an object containing the width and height of the image.
+ * @throws Will throw an error if the image fails to load.
+ */
+export function getImageDimensionsFromBase64(base64String: string): { width: number, height: number } {
+  const buffer = Buffer.from(base64String, 'base64');
+  const dimensions = sizeOf(buffer);
+  return {
+      width: dimensions.width,
+      height: dimensions.height
+  };
+}
+
+/**
+ * Transforms a bounding box from the original screen size to the target screen size.
+ *
+ * @param originalScreenSize - The original screen size.
+ * @param boundingBox - The bounding box to be transformed. It is an array [topLeftX, topLeftY, width, height].
+ * @param targetScreenSize - The target screen size.
+ * @returns A new bounding box that has been scaled to fit the target screen size.
+ */
+export function transformBoundingBox(
+  originalScreenSize: ScreenSize,
+  boundingBox: BoundingBox,
+  targetScreenSize: ScreenSize
+): BoundingBox {
+
+
+  // Calculate scale factors
+  const scaleFactorWidth = targetScreenSize.width / originalScreenSize.width;
+  const scaleFactorHeight = targetScreenSize.height / originalScreenSize.height;
+
+  // Apply scale factors to bounding box
+  const transformedBoundingBox: BoundingBox = [
+      boundingBox[0] * scaleFactorWidth, // Scaled topLeftX
+      boundingBox[1] * scaleFactorHeight, // Scaled topLeftY
+      boundingBox[2] * scaleFactorWidth, // Scaled width
+      boundingBox[3] * scaleFactorHeight, // Scaled height
+  ];
+
+  return transformedBoundingBox;
+}
+
+/**
+ * Calculates the center point of a bounding box.
+ *
+ * @param boundingBox - The bounding box to calculate the center of. It is an array [topLeftX, topLeftY, width, height].
+ * @returns An object with the x and y coordinates of the center of the bounding box.
+ */
+export function calculateBoundingBoxCenter(boundingBox: BoundingBox): { centerX: number; centerY: number } {
+  const [topLeftX, topLeftY, width, height] = boundingBox;
+
+  // Calculate center X and Y
+  const centerX = topLeftX + width / 2;
+  const centerY = topLeftY + height / 2;
+
+  return { centerX, centerY };
+}
+
+/**
+ * Draws a bounding box on an image and returns the updated image as a base64 string.
+ * 
+ * @param base64Image The base64-encoded image on which to draw.
+ * @param boundingBox The bounding box specified as [topX, topY, width, height].
+ * @returns A Promise that resolves to the base64-encoded image with the bounding box drawn.
+ */
+export async function drawBoundingBoxOnImage(base64Image: string, boundingBox: BoundingBox): Promise<string> {
+    // Load the image from the base64 string
+    const image = await Jimp.read(Buffer.from(base64Image, 'base64'));
+
+    // Extract the bounding box coordinates
+    const [topX, topY, width, height] = boundingBox;
+
+    // Define the color and width of the bounding box's border
+    const color = Jimp.cssColorToHex('#FF0000'); // Red color
+    const borderWidth = 2; // You can adjust the border width
+
+    // Draw the top and bottom lines
+    image.scan(topX, topY, width, borderWidth, function(x, y, idx) {
+        this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
+        this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
+        this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
+        this.bitmap.data[idx + 3] = color & 255;         // Alpha
+    });
+
+    image.scan(topX, topY + height - borderWidth, width, borderWidth, function(x, y, idx) {
+        this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
+        this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
+        this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
+        this.bitmap.data[idx + 3] = color & 255;         // Alpha
+    });
+
+    // Draw the left and right lines
+    image.scan(topX, topY, borderWidth, height, function(x, y, idx) {
+        this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
+        this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
+        this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
+        this.bitmap.data[idx + 3] = color & 255;         // Alpha
+    });
+
+    image.scan(topX + width - borderWidth, topY, borderWidth, height, function(x, y, idx) {
+        this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
+        this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
+        this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
+        this.bitmap.data[idx + 3] = color & 255;         // Alpha
+    });
+
+    // Get the modified image as a base64 string
+    return new Promise((resolve, reject) => {
+        image.getBase64(Jimp.MIME_PNG, (err, base64) => {
+            if (err) reject(err);
+            else resolve(base64.split(',')[1]); // Return the base64 content without the MIME type prefix
+        });
+    });
+}
+
+/**
+ * Inserts text into the bottom-left corner of an image.
+ * 
+ * @param base64Image The base64-encoded image into which to insert the text.
+ * @param text The text to insert.
+ * @returns A Promise that resolves to the base64-encoded image with the text inserted.
+ */
+export async function insertTextIntoImage(base64Image: string, text: string): Promise<string> {
+  // Load the image from the base64 string
+  const image = await Jimp.read(Buffer.from(base64Image, 'base64'));
+
+  // Load a font
+  const font = await Jimp.loadFont(Jimp.FONT_SANS_128_WHITE); // Choose the font size and color
+
+    // Calculate text width
+    const textWidth = Jimp.measureText(font, text);
+
+  // Define the position for the text (top-left corner)
+  const x = (image.bitmap.width - textWidth) / 2; // Center the text horizontally
+  const y = 10; // Margin from the top edge, adjust as needed
+
+  // Insert the text into the image
+  image.print(font, x, y, text);
+
+  // Get the modified image as a base64 string
+  return new Promise((resolve, reject) => {
+      image.getBase64(Jimp.MIME_PNG, (err, base64) => {
+          if (err) reject(err);
+          else resolve(base64.split(',')[1]); // Return the base64 content without the MIME type prefix
+      });
+  });
+}
+
+export async function saveBase64ImageToFile(base64Image: string) {
+  // Remove base64 prefix if present
+  const base64Data = base64Image.replace(/^data:image\/png;base64,/, "");
+
+  // Generate a random GUID for the file name
+  const fileName = `${uuidv4()}.png`;
+
+  // Convert base64 to binary data
+  const buffer = Buffer.from(base64Data, 'base64');
+
+  // Save the image to the current folder
+  fs.writeFileSync(fileName, buffer);
 }

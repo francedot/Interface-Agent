@@ -4,17 +4,19 @@ import {
   NLAction,
   OpenAIInput,
   NavAIGuideAgent,
+  SearchUrl,
 } from "@navaiguide/core";
 import { gotoWaitForTimeout } from "./playwright-utils";
 import { tryAsyncEval } from "@navaiguide/core";
 import { PlaywrigthNavAIGuidePage } from "./types";
+import { sPrompt_Generate_Search_Query } from "./prompts/generate-search-query";
 
 /**
  * The PlaywrightAgent class orchestrates the process of performing and reasoning about actions on a web page towards achieving a specified end goal.
  */
 export class PlaywrightAgent extends NavAIGuideAgent {
   private plPage: PlaywrightPage;
-  private readonly runCodeActionMaxRetries = 3;
+  private readonly runCodeSelectorMaxRetries = 3;
 
   /**
    * Constructs a new PlaywrightAgent instance.
@@ -61,7 +63,7 @@ export class PlaywrightAgent extends NavAIGuideAgent {
       console.log(`Predicted next probable action: ${nextAction.actionDescription}`);
       actions.push(nextAction);
 
-      const codeActionResult = await this.navAIGuide.runCodeActionWithRetry({
+      const codeActionResult = await this.navAIGuide.runCodeSelectorWithRetry({
         inputPage: currentNavAIGuidePage,
         endGoal: query,
         nextAction: nextAction,
@@ -72,7 +74,7 @@ export class PlaywrightAgent extends NavAIGuideAgent {
 
       if (!codeActionResult.success) {
         nextAction.actionSuccess = false;
-        console.log(`The code action was unsuccessful after ${this.runCodeActionMaxRetries} retries.`);
+        console.log(`The code action was unsuccessful after ${this.runCodeSelectorMaxRetries} retries.`);
         continue;
       }
       console.log(`The code action was successful.`);
@@ -122,5 +124,36 @@ export class PlaywrightAgent extends NavAIGuideAgent {
       console.log(`Goal not met. Continuing to the next action.`);
       currentNavAIGuidePage = nextNavAIGuidePage;
     }
+  }
+
+  /**
+   * Generates a search query based on the given end goal.
+   * @param endGoal - The final objective or goal specified in natural language.
+   * @returns A promise resolving to a SearchQuery object representing the query to be used on Bing Search.
+   */
+  private async generateSearchUrl({
+    endGoal,
+  }: {
+    endGoal: string;
+  }): Promise<SearchUrl> {
+    const startTaskResult = await this.client.generateText({
+      systemPrompt: sPrompt_Generate_Search_Query,
+      prompt: JSON.stringify({
+        endGoal: endGoal,
+      }),
+      model: OpenAIEnum.GPT35_TURBO,
+      responseFormat: "json_object",
+      temperature: 0.4,
+      seed: 923, // Reproducible output
+    });
+
+    let searchQuery: SearchUrl;
+    try {
+      searchQuery = JSON.parse(startTaskResult.choices[0].message.content);
+    } catch (e) {
+      console.error("Parsed content is not valid JSON");
+    }
+
+    return searchQuery;
   }
 }

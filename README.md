@@ -160,7 +160,7 @@ const nextAction = await navAIGuide.predictNextNLAction({
 **Code Inference and Automation**: Converts the predicted natural language action into automation code (Playwright, JS Browser APIs), including retry patterns for feedback on unsuccessful attempts.
 
 ```typescript
-const codeActionResult = await navAIGuide.runCodeActionWithRetry({
+const codeActionResult = await navAIGuide.runCodeSelectorWithRetry({
   inputPage: inputPage,
   endGoal: findResearchPaperQuery,
   nextAction: nextAction,

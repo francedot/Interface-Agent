@@ -7,7 +7,7 @@ import { getOuterHTMLWithRetry } from "./playwright-utils";
  * This class encapsulates the details of a webpage including its URL, screenshots, and DOM content.
  * It provides a static method to create a NavAIGuidePage instance from a Playwright Page object.
  */
-export class PlaywrigthNavAIGuidePage {
+export class PlaywrigthNavAIGuidePage extends NavAIGuidePage {
   
   /**
    * Creates a NavAIGuidePage instance from a Playwright Page object.

@@ -74,7 +74,7 @@
 //       endGoal: "Download the paper in PDF format",
 //     });
   
-//     const codeActions = await navAIGuide.generateCodeActions({
+//     const codeActions = await navAIGuide.generateCodeSelectors({
 //       page: inputPage,
 //       nextAction: nextAction,
 //       endGoal: "Download the paper in PDF format"

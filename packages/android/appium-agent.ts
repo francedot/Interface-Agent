@@ -13,7 +13,7 @@
 //  */
 // export class AppiumAgent extends NavAIGuideAgent {
 //   private plPage: PlaywrightPage;
-//   private readonly runCodeActionMaxRetries = 3;
+//   private readonly runCodeSelectorMaxRetries = 3;
 
 //   /**
 //    * Constructs a new AppiumAgent instance.
@@ -58,7 +58,7 @@
 //       console.log(`Predicted next probable action: ${nextAction.actionDescription}`);
 //       actions.push(nextAction);
 
-//       const codeActionResult = await this.navAIGuide.runCodeActionWithRetry({
+//       const codeActionResult = await this.navAIGuide.runCodeSelectorWithRetry({
 //         inputPage: currentNavAIGuidePage,
 //         endGoal: query,
 //         nextAction: nextAction,
@@ -69,7 +69,7 @@
 
 //       if (!codeActionResult.success) {
 //         nextAction.actionSuccess = false;
-//         console.log(`The code action was unsuccessful after ${this.runCodeActionMaxRetries} retries.`);
+//         console.log(`The code action was unsuccessful after ${this.runCodeSelectorMaxRetries} retries.`);
 //         continue;
 //       }
 //       console.log(`The code action was successful.`);

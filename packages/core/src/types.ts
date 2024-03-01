@@ -1,4 +1,4 @@
-import { reduceHtmlDomWithChunks } from "./utils";
+import { getImageDimensionsFromBase64, insertTextIntoImage, reduceHtmlDomWithChunks } from "./utils";
 
 /**
  * Enum representing different OpenAI models.
@@ -207,14 +207,6 @@ interface Usage {
 /**
  * Interface representing the NL Starting Task.
  */
-export interface StartSource {
-  startPage: string;
-  startPageDescription: string;
-}
-
-/**
- * Interface representing the NL Starting Task.
- */
 export interface StartTask {
   startPage: string;
 }
@@ -231,7 +223,7 @@ export interface SearchUrl {
  * This class encapsulates the details of a webpage including its URL, screenshots, and DOM content.
  */
 export class NavAIGuidePage {
-  url: string;
+  location: string;
   screens: PageScreen[];
   domContent: string;
   reducedDomContent: string;
@@ -240,43 +232,52 @@ export class NavAIGuidePage {
 
   /**
    * Creates a NavAIGuidePage instance.
-   * @param url - The URL of the webpage.
-   * @param domContent - The DOM content of the webpage.
+   * @param location - The location of the page.
+   * @param domContent - The DOM content of the page.
    * @param screens - An array of screenshots of the webpage in base64 format.
    * @param reduce - Optional: A flag to determine if DOM should be reduced for grounding.
    * @returns A Promise that resolves to a NavAIGuidePage instance.
    */
-  static create({
-    url,
+  static async createAsync({
+    location,
+    screens,
     domContent,
-    screens
+    reducedDomContent,
+    reducedDomChunks
   }: {
-    url: string;
+    location: string;
+    screens: PageScreen[];
     domContent: string;
-    screens: string[];
-  }): NavAIGuidePage {
+    reducedDomContent: string
+    reducedDomChunks: string[]
+  }): Promise<NavAIGuidePage> {
     if (!domContent) {
       throw new Error("DOM content is null or empty");
     }
 
-    const { reducedDomContent, chunks } = reduceHtmlDomWithChunks(domContent);
+    screens[0].base64ValueWithBeforeWatermark = await insertTextIntoImage(screens[0].base64Value, "BEFORE");
+    screens[0].base64ValueWithAfterWatermark = await insertTextIntoImage(screens[0].base64Value, "AFTER");
+    // const screenSize = getImageDimensionsFromBase64(screens[0]); // Assuming screens of the same size
+    // console.log(`Screen size: ${JSON.stringify(screenSize)}`);
+    
+    // const { reducedDomContent, chunks } = reduceHtmlDomWithChunks(domContent);
     
     return {
-      url,
+      location: location,
+      screens: screens,
       domContent: domContent,
       reducedDomContent: reducedDomContent,
-      reducedDomChunks: chunks,
-      screens: screens.map((base64Value) => ({
-        metadata: "TODO: add any metadata about the screenshot here",
-        base64Value,
-      })),
+      reducedDomChunks: reducedDomChunks,
     };
   }
 }
 
-export interface NavAIGuideSource {
+export interface ScreenSize {
+  width: number;
+  height: number;
+};
 
-}
+export type BoundingBox = [number, number, number, number]; // [topLeftX, topLeftY, width, height]
 
 /**
  * Interface representing a NavAIGuide Page Screen.
@@ -285,6 +286,9 @@ export interface NavAIGuideSource {
 export interface PageScreen {
   metadata: string;
   base64Value: string;
+  base64ValueWithBeforeWatermark: string;
+  base64ValueWithAfterWatermark: string;
+  screenSize: ScreenSize;
 }
 
 /**
@@ -292,10 +296,41 @@ export interface PageScreen {
  * This includes the website purpose, page topic, key elements, notable features.
  */
 export interface PageSummary {
-  websitePurpose: string;
+  appPurpose: string;
   pageTopic: string;
   keyElements: string[];
   notableFeatures: string[];
+}
+
+export interface ElementDetails {
+  visualDescription: string;
+  positionContext: string;
+  coordinates: BoundingBox;
+}
+
+export type ActionType = 'tap' | 'type' | 'scroll';
+
+/**
+ * Interface representing an application.
+ * 
+ * @property {string} id - The unique identifier of the application.
+ * @property {string} title - The title of the application.
+ * @property {string} description - A description of the application.
+ */
+export interface App {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+export interface AppsPlan {
+  description: string;
+  steps: AppPlanStep[];
+}
+
+export interface AppPlanStep {
+  appId: string;
+  appEndGoal: string;
 }
 
 /**
@@ -303,21 +338,28 @@ export interface PageSummary {
  * This includes details about the action to be performed on a specific page.
  */
 export interface NLAction {
-  pageUrl?: string;
-  pageGoal: string;
-  actionType: string;
+  previousActionSuccess: boolean | null;
+  previousActionSuccessExplanation: string;
+  endGoalMet: boolean;
+  endGoalMetExplanation: string;
+  actionType: ActionType;
   actionTarget: string;
+  // actionTargetBoundingBox: BoundingBox;
   actionDescription: string;
-  actionCode: string;
-  actionSuccess: boolean;
+  actionInput: string;
+  actionScrollDirection: "up" | "down";
+  actionExpectedOutcome: string;
+  actionTargetVisualDescription: string;
+  actionTargetPositionContext: string;
 }
 
 /**
  * Interface representing a code action.
  * It encapsulates the actual code to be executed as part of the action.
  */
-export interface CodeAction {
-  code: string;
+export interface CodeSelectorByRelevance {
+  selector: string;
+  relevanceScore: number;
 }
 
 /**

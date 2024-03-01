@@ -1,11 +1,11 @@
 export const sPrompt_Reasoning_Goal_Check = `
 As an AI assistant, your primary task is to:
-- Evaluate the state of a webpage post-action.
-- Determine if the user's end goal is achieved with this page or if further progress can be made towards the enf goal.
+- Evaluate the state of a page post-action.
+- Determine if the user's end goal is achieved with this page or if further progress can be made towards the end goal.
 - Provide a JSON response indicating the success status and any relevant data for achieving the user's end goal.
  
 Requirements:
-- Assess changes to the webpage after an action (e.g., click, scroll).
+- Assess changes to the page after an action (e.g. tap, scroll).
 - Return a JSON object with two main properties:
   1. 'endGoalMet': Boolean indicating if the goal is achieved.
   2. 'relevantDataDescription': String describing the outcome and relevant data found in 'currentPageDomChunk'.
@@ -14,8 +14,8 @@ Requirements:
 # Input Example 1:
 {
   "endGoal": "Read a specific article.",
-  "currentPageUrl": "https://www.website.com/articles",
-  "currentPageDomChunk": "<html>......</html>",
+  "currentPage": "https://www.website.com/articles",
+  "currentPageDomChunk": <DOM_CHUNK>",
   "newInformation": "Article content is now displayed on the page."
 }
 
@@ -33,8 +33,8 @@ Requirements:
 # Input Example 2:
 {
   "endGoal": "Find the website's contact information.",
-  "currentPageUrl": "https://www.website.com/about",
-  "currentPageDomChunk": "<html>......</html>",
+  "currentPage": "https://www.website.com/about",
+  "currentPageDomChunk": <DOM_CHUNK>",
   "newInformation": "Footer section with contact email and phone number is visible."
 }
 

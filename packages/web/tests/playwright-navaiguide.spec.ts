@@ -45,7 +45,7 @@
 //     endGoal: query,
 //   });
 
-//   const codeActions = await navAIGuide.generateCodeActions({
+//   const codeActions = await navAIGuide.generateCodeSelectors({
 //     page: inputPage,
 //     endGoal: query,
 //     previousActions: previousActions,
@@ -73,7 +73,7 @@
 //     endGoal: query,
 //   });
 
-//   const codeActions = await navAIGuide.generateCodeActions({
+//   const codeActions = await navAIGuide.generateCodeSelectors({
 //     page: inputPage,
 //     endGoal: query,
 //     nextAction: nextAction,
@@ -107,22 +107,22 @@
 //       mode: "textual", // or visual.
 //     });
 
-//     const codeFailures : string[] = [];
+//     const selectorFailures : string[] = [];
 //     let success = false;
 //     while (!success) {
-//       const codeActions = await navAIGuide.generateCodeActions({
+//       const codeActions = await navAIGuide.generateCodeSelectors({
 //         page: inputPage,
 //         endGoal: findResearchPaperQuery,
 //         previousActions: previousActions,
 //         nextAction: nextAction,
-//         codeFailures: codeFailures,
+//         selectorFailures: selectorFailures,
 //       });
 
 //       for (const codeAction of codeActions) {
 //         const result = await tryAsyncEval({ page }, codeAction.code);
 //         success = result[0];
 //         if (!success) {
-//           codeFailures.push(codeAction.code);
+//           selectorFailures.push(codeAction.code);
 //         }
 //       }
 //     }
@@ -155,7 +155,7 @@
 //   });
 
 //   // Traduce the NL tasks into coded workflows (e.g. Playwright)
-//   const codeActions = await navAIGuide.generateCodeActions({
+//   const codeActions = await navAIGuide.generateCodeSelectors({
 //     page: inputPage,
 //     endGoal: downloadPaperQuery,
 //     previousActions: previousActions,

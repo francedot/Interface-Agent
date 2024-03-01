@@ -4,22 +4,18 @@ import {
   OpenAIInput,
   NavAIGuidePage,
   OpenAIEnum,
-  StartTask as StartTask,
-  CodeAction,
+  StartTask,
   NLAction,
-  SearchUrl,
   PageSummary,
   ActionFeedbackReasoningResult,
   GoalCheckReasoningResult,
+  CodeSelectorByRelevance,
+  AppsPlan,
+  App,
 } from "./types";
-import { sPrompt_Generate_Code_Action } from "../../web/src/prompts/generate-code-action";
-import { systemPrompt_Ground_WebPage_Aggregate, systemPrompt_Ground_WebPage_Chunk } from "../../web/src/prompts/ground-webpage";
-// import { sPrompt_Classifier_Start_Task } from "./prompts/classifier-start-task";
-import { sPrompt_Generate_Search_Query } from "../../web/src/prompts/generate-search-query";
-// import { sPrompt_Predict_Next_NL_Action } from "./prompts/predict-next-nl-action";
-import { sPrompt_Sort_Code_Actions_By_Relevance } from "../../web/src/prompts/sort-relevant-code-actions";
-import { sPrompt_Reasoning_Action_Feedback } from "../../web/src/prompts/reasoning-action-feedback";
-import { sPrompt_Reasoning_Goal_Check } from "../../web/src/prompts/reasoning-goal-check";
+import { systemPrompt_Ground_Page_Aggregate, systemPrompt_Ground_Page_Chunk,  } from "../prompts/ground-page";
+import { sPrompt_Reasoning_Action_Feedback } from "../prompts/reasoning-action-feedback";
+import { sPrompt_Reasoning_Goal_Check } from "../prompts/reasoning-goal-check";
 
 /**
  * NavAIGuide is a class that uses OpenAI to infer natural language tasks from a web page.
@@ -69,16 +65,43 @@ export class NavAIGuide {
       console.error("Parsed content is not valid JSON");
     }
 
-    // if (startTask.startPage === "https://www.bing.com") {
-    //   const generateSearchQueryResult = await this.generateSearchUrl({
-    //     endGoal,
-    //   });
-    //   startTask.startPage = generateSearchQueryResult.searchUrl;
-    //   // Encode spaces only in the search query
-    //   // startTask.startPage = startTask.startPage.replaceAll(" ", "%20");
-    // }
-
     return startTask;
+  }
+
+  /**
+   * Classify a starting natural language task based on the given end goal.
+   * @param endGoal - The final objective or goal specified in natural language.
+   * @returns A promise resolving to a StartTask object representing the initial task inferred from the end goal.
+   */
+  public async generatePlan({
+    prompt,
+    userQuery,
+    appsSource
+  }: {
+    prompt: string;
+    userQuery: string;
+    appsSource: App[];
+  }): Promise<AppsPlan> {
+    const generatePlanResult = await this.client.generateText({
+      systemPrompt: prompt,
+      prompt: JSON.stringify({
+        userQuery: userQuery,
+        appsSource: appsSource
+      }),
+      model: OpenAIEnum.GPT35_TURBO,
+      responseFormat: "json_object",
+      temperature: 0.0,
+      seed: 923, // Reproducible output
+    });
+
+    let appsPlan: AppsPlan;
+    try {
+      appsPlan = JSON.parse(generatePlanResult.choices[0].message.content);
+    } catch (e) {
+      console.error("Parsed content is not valid JSON");
+    }
+
+    return appsPlan;
   }
 
   /**
@@ -87,38 +110,111 @@ export class NavAIGuide {
    * @param page - The current NavAIGuidePage object.
    * @param endGoal - The final objective or goal.
    * @param previousActions - An optional array of previous NLActions to consider for context.
-   * @param mode - An optional mode specifying whether to infer tasks visually or textually. Defaults to 'textual'.
    * @returns A promise resolving to the next inferred NLAction.
    */
-  public async predictNextNLAction({
+  public async predictNextNLAction_Visual({
+    prompt,
+    previousPage = null,
+    currentPage,
+    endGoal,
+    keyboardVisible,
+    scrollable,
+    previousActions,
+  }: {
+    prompt: string;
+    previousPage?: NavAIGuidePage;
+    currentPage: NavAIGuidePage;
+    endGoal: string;
+    keyboardVisible: boolean;
+    scrollable: boolean;
+    previousActions?: NLAction[];
+  }): Promise<NLAction> {
+    const visualGroundingResult = await this.client.analyzeImage({
+      base64Images: [
+        ...(previousPage ? [previousPage.screens.map((screen) => screen.base64ValueWithBeforeWatermark)[0]] : []), // Only if not null we provide the previous page
+        currentPage.screens.map((screen) => screen.base64ValueWithAfterWatermark)[0]
+      ],
+      systemPrompt: prompt,
+      prompt: JSON.stringify({
+        endGoal: endGoal,
+        currentPage: currentPage.location,
+        keyboardVisible: keyboardVisible,
+        scrollable: scrollable,
+        ...(previousActions &&
+          previousActions.length > 0 && { previousActions: previousActions }),
+      }),
+      detailLevel: "auto",
+      responseFormat: "json_object",
+      maxTokens: 2500,
+      temperature: 0,
+    });
+
+    let nlAction: NLAction;
+    try {
+      nlAction = JSON.parse(visualGroundingResult.choices[0].message.content);
+    } catch (e) {
+      console.error("Parsed content is not valid JSON");
+      throw e;
+    }
+
+    return nlAction;
+  }
+
+  /**
+   * Predicts the next natural language action based on the current page, end goal, and any previous actions.
+   * This can be done either visually or textually based on the mode specified.
+   * @param page - The current NavAIGuidePage object.
+   * @param endGoal - The final objective or goal.
+   * @param previousActions - An optional array of previous NLActions to consider for context.
+   * @returns A promise resolving to the next inferred NLAction.
+   */
+  public async predictNextNLAction_Textual({
     prompt,
     page,
     endGoal,
     previousActions,
-    mode = "visual",
   }: {
     prompt: string;
     page: NavAIGuidePage;
     endGoal: string;
     previousActions?: NLAction[];
-    mode?: "visual" | "textual";
   }): Promise<NLAction> {
-    const result =
-      mode === "visual"
-        ? await this.predictNextNLAction_Visual({
-            prompt,
-            page,
-            endGoal,
-            previousActions,
-          })
-        : await this.predictNextNLAction_Textual({
-            prompt,
-            page,
-            endGoal,
-            previousActions,
-          });
+    if (!page.pageSummary) {
+      page.pageSummary = await this.generatePageSummary({ page }); 
+    }
+    const generateNextActionResult = await this.client.generateText({
+      systemPrompt: prompt,
+      prompt: JSON.stringify({
+        endGoal: endGoal,
+        currentPage: page.location,
+        currentPageSummary: page.pageSummary,
+        ...(previousActions &&
+          previousActions.length > 0 && { previousActions: previousActions }),
+      }),
+      model: OpenAIEnum.GPT35_TURBO,
+      responseFormat: "text",
+      temperature: 0.4,
+    });
 
-    return result;
+    const generateNextActionJsonResult = await this.client.generateText({
+      systemPrompt: "Return as valid JSON: ",
+      prompt: generateNextActionResult.choices[0].message.content,
+      model: OpenAIEnum.GPT35_TURBO,
+      responseFormat: "json_object",
+      temperature: 0,
+    });
+
+    let nlAction: NLAction;
+    try {
+      nlAction = JSON.parse(
+        generateNextActionJsonResult.choices[0].message.content
+      );
+    } catch (e) {
+      console.error("Parsed content is not valid JSON");
+      throw e;
+    }
+
+    return nlAction;
   }
 
   /**
@@ -129,65 +225,72 @@ export class NavAIGuide {
    * @param nextAction - The next natural language action to be translated into code.
    * @param codeFrameworkType - An optional parameter specifying the coding framework. Defaults to Playwright.
    * @param previousActions - An optional array of previous NLActions for context.
-   * @param codeFailures - An optional array of strings indicating any previous code failures.
-   * @returns A promise resolving to the generated CodeAction.
+   * @param selectorFailures - An optional array of strings indicating any previous code failures.
+   * @returns A promise resolving to the generated CodeSelector.
    */
-  public async generateCodeActions({
+  public async generateCodeSelectors({
+    prompt,
     page,
-    endGoal,
     nextAction,
-    previousActions = null,
-    codeFailures = null,
-    sortByRelevance = true
+    selectorFailures = null
   }: {
+    prompt: string;
     page: NavAIGuidePage;
-    endGoal: string;
     nextAction: NLAction;
-    previousActions?: NLAction[];
-    codeFailures?: string[];
-    sortByRelevance?: boolean;
-  }): Promise<CodeAction[]> {
+    selectorFailures?: string[];
+  }): Promise<string[]> {
 
-    const codeActions = await Promise.all(
+    const codeSelectorsByRelevance = await Promise.all(
       page.reducedDomChunks.map((chunk) =>
-        this.generateCodeActionForChunk(
+        this.generateCodeSelectorsForChunk(
+          prompt,
           chunk,
-          endGoal,
-          page.url,
           nextAction,
-          previousActions,
-          codeFailures
+          selectorFailures
         )
       )
     );
 
-    if (!sortByRelevance) {
-      return codeActions;
-    }
+    const allCodeSelectorsByRelevance = codeSelectorsByRelevance.flat().filter((codeSelector) => codeSelector != null);
+    console.log(`Generated ${allCodeSelectorsByRelevance.length} probable code selectors by relevance: ${JSON.stringify(allCodeSelectorsByRelevance)}`);
+    const sortedCodeSelectors = 
+    allCodeSelectorsByRelevance.sort(
+      (a, b) => b.relevanceScore - a.relevanceScore)
+      .map((codeSelector) => codeSelector.selector);
 
-    const sortCodeActionsByRelevanceResult = await this.client.generateText({
-      systemPrompt: sPrompt_Sort_Code_Actions_By_Relevance,
-      prompt: JSON.stringify({
-        endGoal: endGoal,
-        currentPageUrl: page.url,
-        nextAction: nextAction,
-        codeSet: JSON.stringify(codeActions.map((codeAction) => codeAction.code)),
-      }),
-      model: OpenAIEnum.GPT35_TURBO,
-      responseFormat: "json_object",
-      temperature: 0.6,
-    });
+    return sortedCodeSelectors;
 
-    let codeByRelevance: string[];
+    // const sortCodeSelectorsByRelevanceResult = await this.client.generateText({
+    //   systemPrompt: sPrompt_Sort_Code_Selectors_By_Relevance,
+    //   prompt: JSON.stringify({
+    //     actionType: nextAction.actionType,
+    //     actionTarget: nextAction.actionTarget,
+    //     actionDescription: nextAction.actionDescription,
+    //     selectors: allCodeSelectorsByRelevance,
+    //   }),
+    //   model: OpenAIEnum.GPT35_TURBO,
+    //   responseFormat: "json_object",
+    //   temperature: 0.1,
+    // });
 
-    try {
-      const parsedJson = JSON.parse(sortCodeActionsByRelevanceResult.choices[0].message.content);
-      codeByRelevance = parsedJson.codeSetByRelevance as string[];
-    } catch (error) {
-      console.error("Parsed content is not valid JSON");
-    }
+    // let selectorsByRelevance: string[];
 
-    return codeByRelevance.map((code) => ({ code: code } as CodeAction));
+    // try {
+    //   const parsedJson = JSON.parse(sortCodeSelectorsByRelevanceResult.choices[0].message.content);
+    //   selectorsByRelevance = parsedJson.sortedSelectors as string[];
+
+    //   if (!selectorsByRelevance) {
+    //     console.error("codeByRelevance undefined");
+    //     console.error("sortCodeSelectorsByRelevanceResult.choices[0].message.content: " + sortCodeSelectorsByRelevanceResult.choices[0].message.content);
+    //     console.error("parsedJson: " + parsedJson);
+    //   }
+
+    // } catch (error) {
+    //   console.error("Parsed content is not valid JSON");
+    // }
+
+    // console.log(`Selectors by relevance: ${selectorsByRelevance}`);
+    // return selectorsByRelevance;
   }
 
   /**
@@ -199,58 +302,54 @@ export class NavAIGuide {
    * @param codeEvalFunc - Reference to the code runner function.
    * @returns An object containing the success status, executed code, and code failures.
    */
-  public async runCodeActionWithRetry({
+  public async generateCodeSelectorsWithRetry({
+    prompt,
     inputPage,
-    endGoal,
     nextAction,
     maxRetries,
     codeEvalFunc: evalCode
   }: {
+    prompt: string;
     inputPage: NavAIGuidePage;
-    endGoal: string;
     nextAction: NLAction;
     maxRetries: number;
-    codeEvalFunc: (code: string) => Promise<[boolean, any]>;
+    codeEvalFunc: (code: string) => Promise<boolean>;
   }) {
-    const codeFailures = [];
+    const selectorFailures = [];
     let success = false;
     let retries = 0;
-    let code: string;
+    let selector: string;
 
     while (!success && retries < maxRetries) {
-      const codeActions = await this.generateCodeActions({
+      const codeSelectors = await this.generateCodeSelectors({
+        prompt: prompt,
         page: inputPage,
-        endGoal: endGoal,
         nextAction: nextAction,
-        codeFailures: codeFailures,
+        selectorFailures: selectorFailures,
       });
-      console.log(`Generated ${codeActions.length} probable code actions at retry ${retries}:`);
-      for (const codeAction of codeActions) {
-        console.log(codeAction.code);
+      console.log(`Generated ${codeSelectors.length} probable code selectors at retry ${retries}:`);
+      for (const codeSelector of codeSelectors) {
+        console.log(codeSelector);
       }
 
-      for (const codeAction of codeActions) {
-        code = codeAction.code;
-        const result = evalCode(code);
-        // const result = await tryAsyncEval({ page: this.plPage }, code);
-        success = result[0] ?? false;
+      for (const codeSelector of codeSelectors) {
+        selector = codeSelector;
+        success = await evalCode(selector);
         if (success) {
           break;
         } else {
-          codeFailures.push(code);
+          selectorFailures.push(codeSelector);
         }
       }
 
       if (!success) {
         retries++;
-        console.log(`Code actions held no success. Retry ${retries} of ${maxRetries}.`);
+        console.log(`Code Selectors held no success. Retry ${retries} of ${maxRetries}.`);
       }
-      nextAction.actionCode = code;
-      nextAction.actionSuccess = success;
     }
 
-    console.log(`Code action '${code}' was ${success ? "successful" : "unsuccessful"} with ${retries} retries.`);
-    return { success, nextAction, codeFailures };
+    console.log(`Code selector '${selector}' was ${success ? "successful" : "unsuccessful"} with ${retries} retries.`);
+    return { success, nextAction, selectorFailures };
   }
 
   /**
@@ -277,8 +376,8 @@ export class NavAIGuide {
       await this.client.generateText({
         systemPrompt: sPrompt_Reasoning_Action_Feedback,
         prompt: JSON.stringify({
-          beforePageUrl: beforePage.url,
-          afterPageUrl: afterPage.url,
+          beforepageLocation: beforePage.location,
+          afterpageLocation: afterPage.location,
           beforePageSummary: beforePage.pageSummary,
           afterPageSummary: afterPage.pageSummary,
           takenAction: takenAction,
@@ -322,7 +421,7 @@ export class NavAIGuide {
           systemPrompt: sPrompt_Reasoning_Goal_Check,
           prompt: JSON.stringify({
             endGoal: endGoal,
-            currentPageUrl: page.url,
+            currentPage: page.location,
             currentPageDomChunk: chunk,
             newInformation: newInformation,
           }),
@@ -355,37 +454,6 @@ export class NavAIGuide {
     return { endGoalMet, relevantData };
   }
 
-  /**
-   * Generates a search query based on the given end goal.
-   * @param endGoal - The final objective or goal specified in natural language.
-   * @returns A promise resolving to a SearchQuery object representing the query to be used on Bing Search.
-   */
-  private async generateSearchUrl({
-    endGoal,
-  }: {
-    endGoal: string;
-  }): Promise<SearchUrl> {
-    const startTaskResult = await this.client.generateText({
-      systemPrompt: sPrompt_Generate_Search_Query,
-      prompt: JSON.stringify({
-        endGoal: endGoal,
-      }),
-      model: OpenAIEnum.GPT35_TURBO,
-      responseFormat: "json_object",
-      temperature: 0.4,
-      seed: 923, // Reproducible output
-    });
-
-    let searchQuery: SearchUrl;
-    try {
-      searchQuery = JSON.parse(startTaskResult.choices[0].message.content);
-    } catch (e) {
-      console.error("Parsed content is not valid JSON");
-    }
-
-    return searchQuery;
-  }
-
   private async generatePageSummary({
     page
   }: {
@@ -410,9 +478,9 @@ export class NavAIGuide {
     domChunk: string;
   }): Promise<PageSummary> {
     const generatePageSummaryForChunkResult = await this.client.generateText({
-      systemPrompt: systemPrompt_Ground_WebPage_Chunk,
+      systemPrompt: systemPrompt_Ground_Page_Chunk,
       prompt: JSON.stringify({
-        pageUrl: page.url,
+        pageLocation: page.location,
         pageDomChunk: domChunk,
       }),
       model: OpenAIEnum.GPT35_TURBO,
@@ -438,7 +506,7 @@ export class NavAIGuide {
     pageSummaries: PageSummary[];
   }): Promise<PageSummary> {
     const generatePageSummaryAggregateResult = await this.client.generateText({
-      systemPrompt: systemPrompt_Ground_WebPage_Aggregate,
+      systemPrompt: systemPrompt_Ground_Page_Aggregate,
       prompt: JSON.stringify({
         pageSummaries: pageSummaries,
       }),
@@ -459,134 +527,45 @@ export class NavAIGuide {
     return pageSummary;
   }
 
-  private async predictNextNLAction_Visual({
-    prompt,
-    page,
-    endGoal,
-    previousActions,
-  }: {
+  private async generateCodeSelectorsForChunk(
     prompt: string,
-    page: NavAIGuidePage;
-    endGoal: string;
-    previousActions?: NLAction[];
-  }): Promise<NLAction> {
-    const visualGroundingResult = await this.client.analyzeImage({
-      base64Images: page.screens.map((screen) => screen.base64Value),
-      systemPrompt: prompt,
-      prompt: JSON.stringify({
-        endGoal: endGoal,
-        currentPageUrl: page.url,
-        ...(previousActions &&
-          previousActions.length > 0 && { previousActions: previousActions }),
-      }),
-      detailLevel: "auto",
-      responseFormat: "json_object",
-      maxTokens: 1200,
-      temperature: 0.4,
-    });
-
-    let nlAction: NLAction;
-    try {
-      nlAction = JSON.parse(visualGroundingResult.choices[0].message.content);
-    } catch (e) {
-      console.error("Parsed content is not valid JSON");
-      throw e;
-    }
-
-    return nlAction;
-  }
-
-  private async predictNextNLAction_Textual({
-    prompt,
-    page,
-    endGoal,
-    previousActions,
-  }: {
-    prompt: string;
-    page: NavAIGuidePage;
-    endGoal: string;
-    previousActions?: NLAction[];
-  }): Promise<NLAction> {
-    if (!page.pageSummary) {
-      page.pageSummary = await this.generatePageSummary({ page }); 
-    }
-    const generateNextActionResult = await this.client.generateText({
-      systemPrompt: prompt,
-      prompt: JSON.stringify({
-        endGoal: endGoal,
-        currentPageUrl: page.url,
-        currentPageSummary: page.pageSummary,
-        ...(previousActions &&
-          previousActions.length > 0 && { previousActions: previousActions }),
-      }),
-      model: OpenAIEnum.GPT35_TURBO,
-      responseFormat: "text",
-      temperature: 0.4,
-    });
-
-    const generateNextActionJsonResult = await this.client.generateText({
-      systemPrompt: "Return as valid JSON: ",
-      prompt: generateNextActionResult.choices[0].message.content,
-      model: OpenAIEnum.GPT35_TURBO,
-      responseFormat: "json_object",
-      temperature: 0,
-    });
-
-    let nlAction: NLAction;
-    try {
-      nlAction = JSON.parse(
-        generateNextActionJsonResult.choices[0].message.content
-      );
-    } catch (e) {
-      console.error("Parsed content is not valid JSON");
-      throw e;
-    }
-
-    return nlAction;
-  }
-
-  private async generateCodeActionForChunk(
     chunk: string,
-    endGoal: string,
-    currentPageUrl: string,
     nextAction: NLAction,
-    previousActions?: NLAction[],
-    codeFailures?: string[]
-  ): Promise<CodeAction> {
-    const generateCodeActionResult = await this.client.generateText({
-      systemPrompt: sPrompt_Generate_Code_Action,
+    selectorFailures?: string[]
+  ): Promise<CodeSelectorByRelevance[]> {
+    const generateCodeSelectorResult = await this.client.generateText({
+      systemPrompt: prompt,
       prompt: JSON.stringify({
-        endGoal: endGoal,
-        currentPageUrl: currentPageUrl,
         currentPageDom: chunk,
-        nextAction: nextAction,
-        ...(previousActions &&
-          previousActions.length > 0 && { previousActions: previousActions }),
-        ...(codeFailures &&
-          codeFailures.length > 0 && { codeFailures: codeFailures }),
+        actionType: nextAction.actionType,
+        actionTarget: nextAction.actionTarget,
+        actionDescription: nextAction.actionDescription,
+        ...(selectorFailures &&
+          selectorFailures.length > 0 && { selectorFailures: selectorFailures }),
       }),
       model: OpenAIEnum.GPT35_TURBO,
       responseFormat: "text",
-      temperature: 0.6, // Increased temperature to encourage more variation in code generation if any 'codeFailures' feedback
+      temperature: 0.6, // Increased temperature to encourage more variation in code generation if any 'selectorFailures' feedback
     });
 
-    const generateCodeActionJsonResult = await this.client.generateText({
+    const generateCodeSelectorJsonResult = await this.client.generateText({
       systemPrompt: "Return as valid JSON: ",
-      prompt: generateCodeActionResult.choices[0].message.content,
+      prompt: generateCodeSelectorResult.choices[0].message.content,
       model: OpenAIEnum.GPT35_TURBO,
       responseFormat: "json_object",
       temperature: 0,
     });
 
-    let codeAction: CodeAction;
+    let selectorsByRelevance: CodeSelectorByRelevance[];
     try {
-      codeAction = JSON.parse(
-        generateCodeActionJsonResult.choices[0].message.content
+      const codeSelectors = JSON.parse(
+        generateCodeSelectorJsonResult.choices[0].message.content
       );
+      selectorsByRelevance = codeSelectors.selectorsByRelevance
     } catch (e) {
       throw new Error("Parsed content is not valid JSON");
     }
 
-    return codeAction;
+    return selectorsByRelevance;
   }
 }
