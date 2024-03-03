@@ -3,8 +3,6 @@
   "version": "0.0.8",
   "description": "Appium iOS integration for NavAIGuide, enabling powerful mobile automation and testing capabilities.",
   "private": false,
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
   "scripts": {
     "build": "tsc",
     "build-go-ios": "chmod +x ./scripts/build-go-ios.sh && ./scripts/build-go-ios.sh",
@@ -38,5 +36,13 @@
     "@navaiguidetest/core": "^0.0.8",
     "appium-ios-device": "^2.7.11",
     "webdriverio": "^8.32.0"
-  }
+  },
+  "files": [
+    "lib/"
+  ],
+  "exports": {
+    ".": "./lib/index.js"
+  },
+  "main": "./lib/index.js",
+  "types": "lib/index.d.ts"
 }

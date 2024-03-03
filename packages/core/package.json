@@ -32,7 +32,7 @@
     "ts-node": "^10.9.2"
   },
   "files": [
-    "lib"
+    "lib/"
   ],
   "exports": {
     ".": "./lib/index.js"
