@@ -119,7 +119,7 @@ export class NavAIGuide {
       }),
       detailLevel: "auto",
       responseFormat: "json_object",
-      maxTokens: 2500,
+      maxTokens: 1250,
       temperature: 0,
     });
 
