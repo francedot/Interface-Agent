@@ -17,6 +17,7 @@
     "chai": "^5.1.0",
     "dotenv": "^16.4.1",
     "eslint": "^8.56.0",
+    "lerna": "^8.1.2",
     "lint-staged": "^15.2.1",
     "mocha": "^10.3.0",
     "prettier": "^3.2.4",
@@ -24,5 +25,6 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.3.3",
     "webdriverio": "^8.32.0"
-  }
+  },
+  "dependencies": {}
 }

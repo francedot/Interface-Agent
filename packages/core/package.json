@@ -1,6 +1,6 @@
 {
   "name": "@navaiguide1/core",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Core library for NavAIGuide: Provides foundational utilities and shared functionality for navigational AI Agents.",
   "engines": {
     "node": ">=18"
