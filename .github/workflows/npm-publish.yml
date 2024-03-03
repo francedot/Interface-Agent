@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: yarn install
       - name: Build packages
-        run: yarn run build
+        run: yarn workspaces foreach --no-private run build
       - name: Publish packages
         run: yarn workspaces foreach --no-private run publish --non-interactive --access public
         env:
