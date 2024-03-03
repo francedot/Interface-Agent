@@ -52,7 +52,7 @@ export class OpenAIModel {
  * Class representing a collection of OpenAI models.
  */
 export class OpenAIModels {
-  private constructor() {}
+  private constructor() { }
 
   /**
    * A dictionary of OpenAI models.
@@ -212,15 +212,12 @@ export interface StartTask {
 }
 
 /**
- * Interface representing the Bing Search Url.
- */
-export interface SearchUrl {
-  searchUrl: string;
-}
-
-/**
  * Class representing a NavAIGuide page as input to NavAIGuide.
- * This class encapsulates the details of a webpage including its URL, screenshots, and DOM content.
+ * @property {string} location - The location of the page.
+ * @property {PageScreen[]} screens - The screens of the page.
+ * @property {string} domContent - The DOM content of the page.
+ * @property {string} reducedDomContent - The reduced DOM content of the page.
+ * @property {string[]} reducedDomChunks - The reduced DOM chunks of the page.
  */
 export class NavAIGuidePage {
   location: string;
@@ -228,17 +225,17 @@ export class NavAIGuidePage {
   domContent: string;
   reducedDomContent: string;
   reducedDomChunks: string[];
-  pageSummary?: PageSummary
 
   /**
    * Creates a NavAIGuidePage instance.
-   * @param location - The location of the page.
-   * @param domContent - The DOM content of the page.
-   * @param screens - An array of screenshots of the webpage in base64 format.
-   * @param reduce - Optional: A flag to determine if DOM should be reduced for grounding.
-   * @returns A Promise that resolves to a NavAIGuidePage instance.
+   * @param {Object} params - The parameters for the NavAIGuidePage.
+   * @param {string} params.location - The location of the page.
+   * @param {PageScreen[]} params.screens - The screens of the page.
+   * @param {string} params.domContent - The DOM content of the page.
+   * @param {string} params.reducedDomContent - The reduced DOM content of the page.
+   * @param {string[]} params.reducedDomChunks - The reduced DOM chunks of the page.
    */
-  static async createAsync({
+  constructor({
     location,
     screens,
     domContent,
@@ -248,40 +245,56 @@ export class NavAIGuidePage {
     location: string;
     screens: PageScreen[];
     domContent: string;
-    reducedDomContent: string
-    reducedDomChunks: string[]
-  }): Promise<NavAIGuidePage> {
-    if (!domContent) {
-      throw new Error("DOM content is null or empty");
-    }
-
-    screens[0].base64ValueWithBeforeWatermark = await insertTextIntoImage(screens[0].base64Value, "BEFORE");
-    screens[0].base64ValueWithAfterWatermark = await insertTextIntoImage(screens[0].base64Value, "AFTER");
-    // const screenSize = getImageDimensionsFromBase64(screens[0]); // Assuming screens of the same size
-    // console.log(`Screen size: ${JSON.stringify(screenSize)}`);
-    
-    // const { reducedDomContent, chunks } = reduceHtmlDomWithChunks(domContent);
-    
-    return {
-      location: location,
-      screens: screens,
-      domContent: domContent,
-      reducedDomContent: reducedDomContent,
-      reducedDomChunks: reducedDomChunks,
-    };
+    reducedDomContent: string;
+    reducedDomChunks: string[];
+  }) {
+    this.location = location;
+    this.screens = screens;
+    this.domContent = domContent;
+    this.reducedDomContent = reducedDomContent;
+    this.reducedDomChunks = reducedDomChunks;
   }
+
+  /**
+   * Draws a watermark on the screens of the page.
+   * @returns {Promise<NavAIGuidePage>} - The page with watermarked screens.
+   */
+  public async drawBeforeWatermarkAsync(): Promise<NavAIGuidePage> {
+
+    // Watermark the image with a BEFORE watermark
+    await Promise.all(this.screens.map(async (screen) => {
+      screen.base64ValueWithBeforeWatermark = await
+        insertTextIntoImage(screen.base64Value, "BEFORE");
+    }));
+
+    return this;
+  }
+
+  /**
+   * Draws a watermark on the screens of the page.
+   * @returns {Promise<NavAIGuidePage>} - The page with watermarked screens.
+   */
+  public async drawAfterWatermarkAsync(): Promise<NavAIGuidePage> {
+
+    // Watermark the image with a AFTER watermark
+    await Promise.all(this.screens.map(async (screen) => {
+      screen.base64ValueWithAfterWatermark = await
+        insertTextIntoImage(screen.base64Value, "AFTER");
+    }));
+
+    return this;
+  }
+
 }
-
-export interface ScreenSize {
-  width: number;
-  height: number;
-};
-
-export type BoundingBox = [number, number, number, number]; // [topLeftX, topLeftY, width, height]
 
 /**
  * Interface representing a NavAIGuide Page Screen.
  * This includes the metadata and the screenshot data in base64 format.
+ * @property {string} metadata - The metadata of the screen.
+ * @property {string} base64Value - The screenshot data in base64 format.
+ * @property {string} base64ValueWithBeforeWatermark - The screenshot data with a "BEFORE" watermark.
+ * @property {string} base64ValueWithAfterWatermark - The screenshot data with an "AFTER" watermark.
+ * @property {ScreenSize} screenSize - The size of the screen.
  */
 export interface PageScreen {
   metadata: string;
@@ -292,26 +305,27 @@ export interface PageScreen {
 }
 
 /**
- * Interface representing a NavAIGuide Page Summary.
- * This includes the website purpose, page topic, key elements, notable features.
+ * Interface representing a Screen Size.
+ * @property {number} width - The width of the screen.
+ * @property {number} height - The height of the screen.
  */
-export interface PageSummary {
-  appPurpose: string;
-  pageTopic: string;
-  keyElements: string[];
-  notableFeatures: string[];
-}
+export interface ScreenSize {
+  width: number;
+  height: number;
+};
 
-export interface ElementDetails {
-  visualDescription: string;
-  positionContext: string;
-  coordinates: BoundingBox;
-}
+/**
+ * Type alias representing a bounding box.
+ */
+export type BoundingBox = [number, number, number, number]; // [topLeftX, topLeftY, width, height]
 
+/**
+ * Type alias for the type of actions available.
+ */
 export type ActionType = 'tap' | 'type' | 'scroll';
 
 /**
- * Interface representing an application.
+ * Interface representing a source application.
  * 
  * @property {string} id - The unique identifier of the application.
  * @property {string} title - The title of the application.
@@ -323,19 +337,42 @@ export interface App {
   description?: string;
 }
 
+/**
+ * Interface representing an Apps Plan.
+ * 
+ * @property {string} description - The description of the plan.
+ * @property {string} steps - A sequence of steps to be performed in the plan.
+ */
 export interface AppsPlan {
   description: string;
   steps: AppPlanStep[];
 }
 
+/**
+ * Interface representing a Apps Plan Step.
+ * 
+ * @property {string} appId - The application id.
+ * @property {string} appEndGoal - The end goal to pursue in the application.
+ */
 export interface AppPlanStep {
   appId: string;
   appEndGoal: string;
 }
 
 /**
- * Interface representing a NavAIGuide Action.
- * This includes details about the action to be performed on a specific page.
+ * Interface representing a NavAIGuide Action in Natural Language.
+ * @property {boolean | null} previousActionSuccess - Indicates if the previous action was successful.
+ * @property {string} previousActionSuccessExplanation - Explanation of the success or failure of the previous action.
+ * @property {boolean} endGoalMet - Indicates if the end goal was met.
+ * @property {string} endGoalMetExplanation - Explanation of the end goal status.
+ * @property {ActionType} actionType - The type of the action.
+ * @property {string} actionTarget - The target of the action.
+ * @property {string} actionDescription - The description of the action.
+ * @property {string} actionInput - The input for the action.
+ * @property {"up" | "down"} actionScrollDirection - The scroll direction for the action.
+ * @property {string} actionExpectedOutcome - The expected outcome of the action.
+ * @property {string} actionTargetVisualDescription - The visual description of the action target.
+ * @property {string} actionTargetPositionContext - The position context of the action target.
  */
 export interface NLAction {
   previousActionSuccess: boolean | null;
@@ -354,39 +391,11 @@ export interface NLAction {
 }
 
 /**
- * Interface representing a code action.
- * It encapsulates the actual code to be executed as part of the action.
+ * Interface representing a code selector with its relevance score.
+ * @property {string} selector - The code selector.
+ * @property {number} relevanceScore - The relevance score of the code selector.
  */
 export interface CodeSelectorByRelevance {
   selector: string;
   relevanceScore: number;
-}
-
-/**
- * Enum representing different types of coded frameworks.
- * This helps in categorizing the frameworks used in code actions.
- */
-export enum CodedFrameworkType {
-  Playwright,
-  BrowserApi,
-}
-
-/**
- * Interface for representing the result of action feedback reasoning.
- * It includes details about the success of an action and any state changes or new information gathered.
- */
-export interface ActionFeedbackReasoningResult {
-  actionSuccess: boolean;
-  pageStateChanges: string;
-  newInformation: string;
-}
-
-/**
- * Interface for representing the result of a goal check reasoning process.
- * It determines if the end goal has been met and includes relevant data and descriptions.
- */
-export interface GoalCheckReasoningResult {
-  endGoalMet: boolean;
-  relevantDataDescription: string;
-  relevantData: string[][];
 }

@@ -7,12 +7,12 @@
   "scripts": {
     "build": "tsc",
     "build-go-ios": "chmod +x ./scripts/build-go-ios.sh && ./scripts/build-go-ios.sh",
+    "run-wda": "chmod +x ./scripts/run-wda.sh && ./scripts/run-wda.sh",
     "test": "mocha",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "format": "prettier --write 'src/**/*.{js,ts,json}'",
     "prepare": "yarn run build",
-    "start": "node lib/index.js",
-    "run-wda": "chmod +x ./scripts/run-wda.sh && ./scripts/run-wda.sh"
+    "start": "node lib/index.js"
   },
   "repository": {
     "type": "git",

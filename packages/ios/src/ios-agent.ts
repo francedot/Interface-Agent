@@ -1,9 +1,8 @@
 import {
   AzureAIInput,
   NLAction,
-  NavAIGuideAgent,
+  NavAIGuideBaseAgent,
   OpenAIInput,
-  saveBase64ImageToFile
 } from "@navaiguide/core";
 import { remote } from 'webdriverio';
 import { getInstalledApps, navigateToAppAsync, isViewKeyboardVisible, isViewScrollable } from "./utils";
@@ -15,7 +14,7 @@ import { sPrompt_App_Planner } from "./prompts/planner-apps";
 /**
  * The iOSAgent class orchestrates the process of performing and reasoning about actions on a mobile screen towards achieving a specified end goal.
  */
-export class iOSAgent extends NavAIGuideAgent {
+export class iOSAgent extends NavAIGuideBaseAgent {
   private wdioClient: WebdriverIO.Browser;
   private readonly appiumBaseUrl: string;
   private readonly appiumPort: number;
@@ -24,7 +23,7 @@ export class iOSAgent extends NavAIGuideAgent {
   private iOSActionHandler: iOSActionHandler;
 
   /**
-   * Constructs a new AppiumiOSAgent instance.
+   * Constructs a new iOSAgent instance.
    * @param fields - Configuration fields including OpenAI and AzureAI inputs and Appium configuration.
    */
   constructor(
@@ -47,7 +46,7 @@ export class iOSAgent extends NavAIGuideAgent {
 
   /**
    * Runs the agent to achieve a specified end goal using a series of actions.
-   * @param endGoal - The end goal to be achieved.
+   * @param query - The query to be achieved.
    * @returns A promise resolving to an array of relevant data strings upon successfully achieving the goal.
    */
   public async runAsync({ query }: { query: string }): Promise<string[][]> {
@@ -60,7 +59,7 @@ export class iOSAgent extends NavAIGuideAgent {
     const apps = await getInstalledApps();
     console.log(`Found ${apps.length} installed apps: ${apps.map(app => app.title).join("\n")}`);
 
-    const appsPlan = await this.navAIGuide.generatePlan({
+    const appsPlan = await this.navAIGuide.startTaskPlanner_Agent({
       prompt: sPrompt_App_Planner,
       userQuery: query,
       appsSource: apps,
@@ -89,12 +88,12 @@ export class iOSAgent extends NavAIGuideAgent {
       location: appStep.appId
     });
 
-    saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
+    // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
 
     this.iOSActionHandler = new iOSActionHandler(this.wdioClient, this.navAIGuide);
     const actions: NLAction[] = [];
     while (true) {
-      const nextAction = await this.navAIGuide.predictNextNLAction_Visual({
+      const nextAction = await this.navAIGuide.predictNextNLAction_Visual_Agent({
         prompt: sPrompt_Predict_Next_NL_Action,
         previousPage: previousNavAIGuidePage,
         currentPage: currentNavAIGuidePage,
@@ -120,7 +119,7 @@ export class iOSAgent extends NavAIGuideAgent {
 
       // Delay for a few seconds to allow the action to take effect
       await new Promise(resolve => setTimeout(resolve, 4000));
-      saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
+      // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
 
       const nextNavAIGuidePage = await AppiumiOSNavAIGuidePage.fromAppiumAsync({
         wdioClient: this.wdioClient,
@@ -140,10 +139,9 @@ export class iOSAgent extends NavAIGuideAgent {
         platformName: "iOS",
         "appium:newCommandTimeout": 50000,
         "appium:platformVersion": this.iOSVersion,
-        "appium:deviceName": "(can be any value but must be present)",
+        "appium:deviceName": "(can be any value but must be set)",
         "appium:automationName": "XCUITest",
-        "appium:udid": this.deviceUdid,
-        "appium:skipLogCapture": true,
+        "appium:udid": this.deviceUdid
       }
     });
 

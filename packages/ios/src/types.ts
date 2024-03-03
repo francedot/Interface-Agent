@@ -35,7 +35,7 @@ export class AppiumiOSNavAIGuidePage extends NavAIGuidePage {
     const domContent = await wdioClient.getPageSource();
     const { reducedDomContent, chunks } = reduceXmlDomWithChunks(domContent);
 
-    return await NavAIGuidePage.createAsync({
+    return new NavAIGuidePage({
       location: location,
       screens: pageScreens,
       domContent: domContent,

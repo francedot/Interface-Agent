@@ -13,10 +13,9 @@ export class iOSActionHandler {
     }
 
     public async performAction(nextAction: NLAction, currentPage: NavAIGuidePage): Promise<void> {
-        // TODO context as multi-type
         switch (nextAction.actionType) {
             case 'tap':
-                const codeSelectorsResult = await this.navAIGuide.generateCodeSelectorsWithRetry({
+                const codeSelectorsResult = await this.navAIGuide.generateCodeSelectorsWithRetry_Agent({
                     prompt: sPrompt_Generate_Code_Selectors_iOS,
                     inputPage: currentPage,
                     nextAction: nextAction,

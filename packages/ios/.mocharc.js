@@ -6,6 +6,6 @@ module.exports = {
   require: [
     'ts-node/register', // Transpile TypeScript on the fly
     'tsconfig-paths/register', // Use tsconfig paths for module resolution
-    './mocha-setup.js' // Your Mocha setup file
+    './env-setup.js' // Load environment variables
   ],
 };

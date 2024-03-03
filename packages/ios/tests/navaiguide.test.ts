@@ -3,7 +3,7 @@ import { iOSAgent } from "../src/ios-agent";
 
 describe("Appium-iOS Device Interaction Tests", function() {
 
-  let navAIGuideAgent: iOSAgent;
+  let NavAIGuideBaseAgent: iOSAgent;
 
   before(async function() {
 
@@ -15,7 +15,7 @@ describe("Appium-iOS Device Interaction Tests", function() {
 
     // await new Promise((resolve) => setTimeout(resolve, 10000));
 
-    navAIGuideAgent = new iOSAgent({
+    NavAIGuideBaseAgent = new iOSAgent({
       appiumBaseUrl: 'http://127.0.0.1',
       appiumPort: 4723,
       iOSVersion: "17.3.0",
@@ -33,56 +33,56 @@ describe("Appium-iOS Device Interaction Tests", function() {
 
   const fitnessPlannerQuery = "I need some help for running a 30-day fitness challenge.";
   it(fitnessPlannerQuery, async function() {
-    const results = await navAIGuideAgent.runAsync({
+    const results = await NavAIGuideBaseAgent.runAsync({
       query: fitnessPlannerQuery
     });
   });
 
   const musicNightPlannerQuery = "Let's plan a music night for this Saturday.";
   it(musicNightPlannerQuery, async function() {
-    const results = await navAIGuideAgent.runAsync({
+    const results = await NavAIGuideBaseAgent.runAsync({
       query: musicNightPlannerQuery
     });
   });
 
   const wicklowTripPlannerQuery = "Let's plan a trip to Cork for this weekend.";
   it(wicklowTripPlannerQuery, async function() {
-    const results = await navAIGuideAgent.runAsync({
+    const results = await NavAIGuideBaseAgent.runAsync({
       query: wicklowTripPlannerQuery
     });
   });
 
   const findLatestMGKQuery = "I'd like to listen the latest MGK single called 'don't let me go' on Spotify.";
   it(findLatestMGKQuery, async function() {
-    const results = await navAIGuideAgent.runAsync({
+    const results = await NavAIGuideBaseAgent.runAsync({
       query: findLatestMGKQuery
     });
   });
 
   const sendMessageWhatsappQuery = "Send a message to friend on Instagram telling her 'Bella Ciao'";
   it(sendMessageWhatsappQuery, async function() {
-    const results = await navAIGuideAgent.runAsync({
+    const results = await NavAIGuideBaseAgent.runAsync({
       query: sendMessageWhatsappQuery
     });
   });
 
   const turnOffLocationServiceQuery = "Turn off location services in iOS Settings.";
   it(turnOffLocationServiceQuery, async function() {
-    const results = await navAIGuideAgent.runAsync({
+    const results = await NavAIGuideBaseAgent.runAsync({
       query: turnOffLocationServiceQuery
     });
   });
 
   const youtubeQuery = "Check the latest news on AI from 'Matt Wolfe' on YouTube.";
   it(youtubeQuery, async function() {
-    const results = await navAIGuideAgent.runAsync({
+    const results = await NavAIGuideBaseAgent.runAsync({
       query: youtubeQuery
     });
   });
 
   const twitterQuery = "Check the latest news on AI from 'Matt Wolfe' on Twitter.";
   it(twitterQuery, async function() {
-    const results = await navAIGuideAgent.runAsync({
+    const results = await NavAIGuideBaseAgent.runAsync({
       query: twitterQuery
     });
   });
