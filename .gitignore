@@ -408,3 +408,5 @@ FodyWeavers.xsd
 **/test-results
 
 .DS_Store
+
+**/lib/
