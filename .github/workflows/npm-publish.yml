@@ -15,9 +15,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Install dependencies
         run: yarn install
-      - name: Build packages
+      - name: Build all packages
         run: yarn workspaces run build
-      - name: Publish packages
+      - name: Publish all packages
         run: npx lerna publish from-git --yes --force-publish=* --registry https://registry.npmjs.org/ --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
