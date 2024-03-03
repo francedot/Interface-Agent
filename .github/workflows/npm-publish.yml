@@ -18,6 +18,6 @@ jobs:
       - name: Build all packages
         run: yarn workspaces run build
       - name: Publish all packages
-        run: npx lerna publish from-git --yes --force-publish=* --registry https://registry.npmjs.org/ --access public
+        run: npx lerna publish from-git --yes --force-publish=* --registry https://registry.npmjs.org/
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

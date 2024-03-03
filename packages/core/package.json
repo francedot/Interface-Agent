@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/francedot/navaiguide"
+    "url": "https://github.com/francedot/navaiguide-ts"
   },
   "publishConfig": {
     "access": "public"
