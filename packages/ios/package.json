@@ -37,6 +37,6 @@
   "dependencies": {
     "@navaiguidetest/core": "^0.0.6",
     "appium-ios-device": "^2.7.11",
-    "webdriverio": "^8.31.1"
+    "webdriverio": "^8.32.0"
   }
 }
