@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: yarn install
       - name: Build packages
-        run: yarn workspaces foreach --no-private run build
+        run: yarn workspaces run build
       - name: Publish packages
         run: npx lerna publish from-git --yes --force-publish=* --registry https://registry.npmjs.org/
         env:
