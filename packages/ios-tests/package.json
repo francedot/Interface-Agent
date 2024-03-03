@@ -1,6 +1,6 @@
 {
   "name": "@navaiguidetest/ios-tests",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Tests for Appium iOS integration for NavAIGuide, enabling powerful mobile automation and testing capabilities.",
   "private": true,
   "main": "lib/index.js",
@@ -30,6 +30,6 @@
   "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
   "license": "MIT",
   "dependencies": {
-    "@navaiguidetest/ios": "^0.0.5"
+    "@navaiguidetest/ios": "^0.0.6"
   }
 }
