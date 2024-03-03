@@ -1,0 +1,58 @@
+{
+  "name": "@navaiguide/core",
+  "version": "0.1.0",
+  "description": "Core library for NavAIGuide: Provides foundational utilities and shared functionality for navigational AI Agents.",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/francedot/navaiguide"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build=proj": "tsc",
+    "test": "jest",
+    "lint": "eslint 'src/**/*.{js,ts}'",
+    "format": "prettier --write 'src/**/*.{js,ts,json}'",
+    "prepare": "yarn run build",
+    "clean": "rimraf lib"
+  },
+  "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "html-entities": "^2.4.0",
+    "image-size": "^1.1.1",
+    "jimp": "^0.22.10",
+    "ts-node": "^10.9.2"
+  },
+  "files": [
+    "lib"
+  ],
+  "exports": {
+    ".": "./lib/index.js"
+  },
+  "main": "./lib/index.js",
+  "types": "lib/index.d.ts",
+  "keywords": [
+    "navaiguide",
+    "core",
+    "llm",
+    "web",
+    "AI",
+    "langchain",
+    "gpt",
+    "chatgpt"
+  ],
+  "lint-staged": {
+    "**/*.{ts,tsx}": [
+      "prettier --write --ignore-unknown",
+      "eslint --cache --fix"
+    ],
+    "*.md": "prettier --write"
+  }
+}
