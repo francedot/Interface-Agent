@@ -31,7 +31,7 @@
   "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
   "license": "MIT",
   "dependencies": {
-    "@navaiguide/core": "^0.1.0",
+    "@navaiguide1/core": "^0.1.0",
     "appium-ios-device": "^2.7.11",
     "webdriverio": "^8.31.1"
   },
