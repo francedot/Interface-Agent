@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { iOSAgent } from "../src/ios-agent";
+import { iOSAgent } from "../../ios/src/ios-agent";
 
 describe("Appium-iOS Device Interaction Tests", function() {
 
