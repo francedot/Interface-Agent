@@ -1,5 +1,5 @@
 {
-  "name": "navaiguide",
+  "name": "navaiguide1",
   "private": true,
   "workspaces": [
     "packages/*"
