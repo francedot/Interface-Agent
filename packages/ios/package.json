@@ -1,6 +1,6 @@
 {
   "name": "@navaiguide/ios",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Appium iOS integration for NavAIGuide, enabling powerful mobile automation and testing capabilities.",
   "private": false,
   "scripts": {
@@ -33,7 +33,7 @@
   "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
   "license": "MIT",
   "dependencies": {
-    "@navaiguide/core": "^0.0.2",
+    "@navaiguide/core": "^0.0.3",
     "webdriverio": "^8.32.0"
   },
   "files": [
