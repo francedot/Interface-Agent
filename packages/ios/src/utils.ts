@@ -2,6 +2,7 @@ import { exec } from 'child_process';
 import util from 'util';
 import * as http from "http";
 import { App } from '@navaiguide/core';
+import path from "path";
 
 const execPromisified = util.promisify(exec);
 
@@ -12,7 +13,8 @@ const execPromisified = util.promisify(exec);
  */
 export async function getInstalledApps(): Promise<App[]> {
   try {
-    const { stdout } = await execPromisified('bin/go-ios apps --list');
+    const goIosPath = path.join(__dirname, '..', 'bin', 'go-ios');
+    const { stdout } = await execPromisified(`${goIosPath} apps --list`);
     const lines = stdout.split('\n').slice(1); // Skip the first line
     const apps = lines.map(line => {
       const [id, ...titleParts] = line.split(' ');
