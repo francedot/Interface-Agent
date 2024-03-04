@@ -29,7 +29,8 @@
     "html-entities": "^2.4.0",
     "image-size": "^1.1.1",
     "jimp": "^0.22.10",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "uuid": "^9.0.1"
   },
   "files": [
     "lib/"
