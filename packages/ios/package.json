@@ -34,7 +34,6 @@
   "license": "MIT",
   "dependencies": {
     "@navaiguide/core": "^0.0.2",
-    "appium-ios-device": "^2.7.11",
     "webdriverio": "^8.32.0"
   },
   "files": [
