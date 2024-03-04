@@ -38,7 +38,8 @@
     "webdriverio": "^8.32.0"
   },
   "files": [
-    "lib/"
+    "lib/",
+    "scripts/"
   ],
   "exports": {
     ".": "./lib/index.js"
