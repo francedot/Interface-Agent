@@ -330,11 +330,14 @@ export type ActionType = 'tap' | 'type' | 'scroll';
  * @property {string} id - The unique identifier of the application.
  * @property {string} title - The title of the application.
  * @property {string} description - A description of the application.
+ * @property {string} path - The path to the application, if applicable.
  */
 export interface App {
   id: string;
   title: string;
   description?: string;
+  path?: string;
+  metadata?: string[];
 }
 
 /**

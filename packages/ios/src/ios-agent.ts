@@ -5,7 +5,7 @@ import {
   OpenAIInput,
 } from "@navaiguide/core";
 import { remote } from 'webdriverio';
-import { getInstalledApps, navigateToAppAsync, isViewKeyboardVisible, isViewScrollable } from "./utils";
+import { getInstalledApps, launchAppAsync, isViewKeyboardVisible, isViewScrollable } from "./utils";
 import { AppiumiOSNavAIGuidePage } from "./types";
 import { sPrompt_Predict_Next_NL_Action } from "./prompts/predict-next-nl-action";
 import { iOSActionHandler } from "./ios-action-handler";
@@ -62,7 +62,7 @@ export class iOSAgent extends NavAIGuideBaseAgent {
     const appsPlan = await this.navAIGuide.startTaskPlanner_Agent({
       prompt: sPrompt_App_Planner,
       userQuery: query,
-      appsSource: apps,
+      appsSource: apps.map(app => app.title),
     });
 
     console.log(`Generated plan with ${appsPlan.steps.length} steps: ${appsPlan.description}`);
@@ -78,7 +78,7 @@ export class iOSAgent extends NavAIGuideBaseAgent {
   private async runAppStepAsync(appStep: { appId: string; appEndGoal: string }): Promise<string[][]> {
 
     console.log(`Starting at app: ${appStep.appId}`);
-    await navigateToAppAsync(this.wdioClient, appStep.appId);
+    await launchAppAsync(this.wdioClient, appStep.appId);
 
     await new Promise(resolve => setTimeout(resolve, 6000));
 

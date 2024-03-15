@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "./"
+		},
+		{
+			"path": "packages/core"
+		},
+		{
+			"path": "packages/ios"
+		},
+        {
+			"path": "packages/windows"
+		}
+	],
+	"settings": {}
+}

@@ -1,0 +1,44 @@
+{
+  "name": "@navaiguide/windows",
+  "version": "0.0.5",
+  "description": "Windows integration for NavAIGuide, enabling powerful desktop automation and testing capabilities.",
+  "private": false,
+  "scripts": {
+    "build": "tsc",
+    "test": "mocha",
+    "lint": "eslint 'src/**/*.{js,ts}'",
+    "format": "prettier --write 'src/**/*.{js,ts,json}'",
+    "prepare": "yarn run build",
+    "start": "node lib/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/francedot/navaiguide-ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "navaiguide",
+    "win",
+    "llm",
+    "windows",
+    "AI",
+    "langchain",
+    "gpt",
+    "chatgpt"
+  ],
+  "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@navaiguide/core": "^0.0.5"
+  },
+  "files": [
+    "lib/"
+  ],
+  "exports": {
+    ".": "./lib/index.js"
+  },
+  "main": "./lib/index.js",
+  "types": "lib/index.d.ts"
+}

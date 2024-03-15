@@ -36,7 +36,7 @@ export async function getInstalledApps(): Promise<App[]> {
  * @param appId - The ID of the app to activate.
  * @returns {Promise<void>} A promise that resolves when the app is activated.
  */
-export async function navigateToAppAsync(wdioClient: WebdriverIO.Browser, appId: string): Promise<void> {
+export async function launchAppAsync(wdioClient: WebdriverIO.Browser, appId: string): Promise<void> {
   return wdioClient.activateApp(appId);
 }
 

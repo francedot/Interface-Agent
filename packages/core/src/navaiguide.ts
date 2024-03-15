@@ -42,7 +42,7 @@ export class NavAIGuide {
   }: {
     prompt: string;
     userQuery: string;
-    appsSource: App[];
+    appsSource: string[];
   }): Promise<AppsPlan> {
     const generatePlanResult = await this.client.generateText({
       systemPrompt: prompt,
@@ -84,7 +84,7 @@ export class NavAIGuide {
     previousPage = null,
     currentPage,
     endGoal,
-    keyboardVisible,
+    keyboardVisible = null,
     scrollable,
     previousActions,
   }: {
@@ -92,7 +92,7 @@ export class NavAIGuide {
     previousPage?: NavAIGuidePage;
     currentPage: NavAIGuidePage;
     endGoal: string;
-    keyboardVisible: boolean;
+    keyboardVisible?: boolean;
     scrollable: boolean;
     previousActions?: NLAction[];
   }): Promise<NLAction> {
@@ -112,7 +112,7 @@ export class NavAIGuide {
       prompt: JSON.stringify({
         endGoal: endGoal,
         currentPage: currentPage.location,
-        keyboardVisible: keyboardVisible,
+        ...(keyboardVisible != null && { keyboardVisible: keyboardVisible }),
         scrollable: scrollable,
         ...(previousActions &&
           previousActions.length > 0 && { previousActions: previousActions }),
