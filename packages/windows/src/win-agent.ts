@@ -4,11 +4,12 @@ import {
   NLAction,
   NavAIGuideBaseAgent,
   OpenAIInput,
+  saveBase64ImageToFile,
 } from "@navaiguide/core";
 import { sPrompt_Predict_Next_NL_Action } from "./prompts/predict-next-nl-action";
 import { WindowsActionHandler } from "./win-action-handler";
 import { sPrompt_App_Planner } from "./prompts/planner-apps";
-import { getInstalledApps, getStartMenuApps, launchAppAsync } from "./utils";
+import { getAllInstalledApps, launchAppAsync } from "./utils";
 import { WindowsNavAIGuidePage } from "./types";
 
 /**
@@ -38,7 +39,7 @@ export class WindowsAgent extends NavAIGuideBaseAgent {
   public async runAsync({ query }: { query: string }): Promise<string[][]> {
 
     // Get installed apps
-    const apps = await getStartMenuApps();
+    const apps = await getAllInstalledApps();
     const appTitles = Array.from(apps.keys());
     console.log(`Found ${appTitles.length} installed apps: ${appTitles.join("\n")}`);
 
@@ -53,10 +54,10 @@ export class WindowsAgent extends NavAIGuideBaseAgent {
     for (const appStep of appsPlan.steps) {
       const app = apps.get(appStep.appId);
       if (app == null) {
-        console.error(`Invalid app ID: ${appStep.appId}`);
+        throw new Error(`Invalid app ID: ${appStep.appId}`);
       }
       console.log(`App: ${appStep.appId}, Goal: ${appStep.appEndGoal}`);
-      await this.runAppStepAsync({ app: apps.get(appStep.appId)!, appEndGoal: appStep.appEndGoal });
+      await this.runAppStepAsync({ app: app, appEndGoal: appStep.appEndGoal });
     }
 
     return [];
@@ -71,11 +72,11 @@ export class WindowsAgent extends NavAIGuideBaseAgent {
 
     let previousNavAIGuidePage: WindowsNavAIGuidePage | null = null;
     let currentNavAIGuidePage = await WindowsNavAIGuidePage.fromUIAutomationAsync({
-      windowHandle: winHandle,
+      winHandle: winHandle,
       location: appStep.app.title
     });
 
-    // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
+    saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
 
     this.windowsActionHandler = new WindowsActionHandler(this.navAIGuide);
     const actions: NLAction[] = [];
@@ -106,10 +107,10 @@ export class WindowsAgent extends NavAIGuideBaseAgent {
 
       // Delay for a few seconds to allow the action to take effect
       await new Promise(resolve => setTimeout(resolve, 4000));
-      // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
+      saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
 
       const nextNavAIGuidePage = await WindowsNavAIGuidePage.fromUIAutomationAsync({
-        windowHandle: winHandle,
+        winHandle: winHandle,
         location: appStep.app.title // Set again as the id of the app
       });
 

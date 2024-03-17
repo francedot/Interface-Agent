@@ -2,7 +2,6 @@ import { App } from '@navaiguide/core';
 import { exec } from 'child_process';
 import path from 'path';
 
-
 function runPowerShellModuleFunction(functionName: string, namedArgs: {[key: string]: string | number} = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     const modulePath = path.join(__dirname, 'WinAutomation.psm1');
@@ -26,13 +25,7 @@ function runPowerShellModuleFunction(functionName: string, namedArgs: {[key: str
   });
 }
 
-// Example usage
-// const modulePath = 'C:\\path\\to\\your\\Module.psm1'; // Update to your .psm1 file path
-// runPowerShellModuleFunction(modulePath, 'Tap-Element', 'SomeAutomationId')
-//   .then(output => console.log(output))
-//   .catch(error => console.error(error));
-
-export async function getStartMenuApps(): Promise<Map<string, App>> {
+export async function getAllInstalledApps(): Promise<Map<string, App>> {
   const appsMap = new Map<string, App>();
   try {
     const getInstalledAppsResult = await runPowerShellModuleFunction('Get-AllInstalledApps');
@@ -53,40 +46,10 @@ export async function getStartMenuApps(): Promise<Map<string, App>> {
 
   } catch (error) {
     console.error("Error fetching installed apps:", error);
+    throw error;
   }
 
   return appsMap;
-}
-
-export async function getInstalledApps(): Promise<App[]> {
-  const apps: App[] = [];
-  try {
-    // Run the PowerShell command and get the result in JSON format
-    const getInstalledAppsResult = await runPowerShellModuleFunction('Get-AllInstalledApps');
-    
-    // Parse the JSON result into an array of objects
-    const resultApps = JSON.parse(getInstalledAppsResult);
-
-    // Map the parsed objects to the App[] array, adapting fields as necessary
-    resultApps.forEach((app: any) => {
-      const appData: Partial<App> = {
-        id: app.PackageFullName || app.UninstallString, // Use PackageFullName for UWP apps, UninstallString for desktop apps
-        title: app.DisplayName || app.Name, // Use DisplayName for desktop apps, Name for UWP apps
-        description: app.Publisher, // Use Publisher for both app types
-        path: app.InstallLocation || app.UninstallString // Use InstallLocation for UWP apps, UninstallString for desktop apps
-      };
-
-      // Ensure an ID and title exist before adding to the apps array
-      if (appData.id && appData.title) {
-        apps.push(appData as App); // Casting as App since we checked for required fields
-      }
-    });
-
-  } catch (error) {
-    console.error("Error fetching installed apps:", error);
-  }
-
-  return apps;
 }
 
 /**
@@ -95,19 +58,25 @@ export async function getInstalledApps(): Promise<App[]> {
  * @param app - The app to activate.
  * @returns {Promise<number>} A promise that resolves to the window app handle.
  */
-export async function launchAppAsync(app: App): Promise<number> {
+export async function launchAppAsync(app: App): Promise<string> {
   try {
-    const winHandle = await runPowerShellModuleFunction('Start-Application', { 
-      LaunchPath: app.path,
+    const winHandle = await runPowerShellModuleFunction('Start-ApplicationAndCaptureHandle', { 
       AppName: app.title,
+      LaunchPath: app.path,
+      Type: app.metadata[0],
     });
 
-    return parseInt(winHandle, 10);
+    if (winHandle === null || winHandle === "") {
+      throw new Error(`No window handle returned for app: ${app.title}`);
+    }
+
+    console.log(`Launched app: ${app.title} with window handle: ${winHandle}`)
+
+    return winHandle;
   } catch (error) {
     console.error(`Error launching app: ${app.title}`, error);
+    throw error;
   }
-
-  return null;
 }
 
 /**
@@ -116,16 +85,71 @@ export async function launchAppAsync(app: App): Promise<number> {
  * @param app - The app to activate.
  * @returns {Promise<void>} A promise that resolves when the app is activated.
  */
-export async function takeAppScreenshotAsync(appReference: number): Promise<string> {
+export async function takeAppScreenshotAsync(winHandle: string): Promise<string> {
   try {
     const screenshot = await runPowerShellModuleFunction('Get-ScreenshotOfAppWindowAsBase64', {
-      WindowHandle: appReference
-    })
+      WindowHandle: winHandle
+    });
 
     return screenshot;
   } catch (error) {
-    console.error(`Error taking screenshot of window handle: ${appReference}`, error);
+    console.error(`Error taking screenshot of app: ${winHandle}`, error);
+    throw error;
   }
-
-  return null;
 }
+
+/**
+ * Activates an app on the device.
+ *
+ * @param app - The app to activate.
+ * @returns {Promise<void>} A promise that resolves when the app is activated.
+ */
+export async function getAppWindowUITree(winHandle: string): Promise<string> {
+  try {
+    // const winHandle = await runPowerShellModuleFunction('Start-ApplicationAndCaptureHandle', { 
+    //   AppName: app.title,
+    //   LaunchPath: app.path,
+    //   Type: app.metadata[0],
+    // });
+    // Get-RootAutomationElementFromHandle
+    const getAppWindowUITreeResult = await runPowerShellModuleFunction('Get-AppWindowUITree', {
+      WindowHandle: winHandle
+    });
+
+    return getAppWindowUITreeResult;
+  } catch (error) {
+    console.error(`Error getting UI tree for app: ${winHandle}`, error);
+    throw error;
+  }
+}
+
+export async function performActionTap(winHandle: string, xPathSelector: string): Promise<boolean> {
+  try {
+    const invokeUIElementTapResult = await runPowerShellModuleFunction('Invoke-UIElementTap', {
+      WindowHandle: winHandle,
+      XPath: xPathSelector,
+    });
+
+    return invokeUIElementTapResult.toLowerCase() === 'true';
+  } catch (error) {
+    console.error(`Error performing tap action for app: ${winHandle}`, error);
+    throw error;
+  }
+}
+
+export async function performActionType(winHandle: string, xPathSelector: string, text: string): Promise<boolean> {
+  try {
+    const setUIElementTextResult = await runPowerShellModuleFunction('Set-UIElementText', {
+      WindowHandle: winHandle,
+      XPath: xPathSelector,
+      Text: text,
+    });
+
+    return setUIElementTextResult.toLowerCase() === 'true';
+  } catch (error) {
+    console.error(`Error performing type action for app: ${winHandle}`, error);
+    throw error;
+  }
+}
+
+// TODO Scroll

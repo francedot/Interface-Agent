@@ -3,34 +3,43 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public class User32 {
+    [DllImport("user32.dll")]
+    public static extern IntPtr SetForegroundWindow(IntPtr hWnd);
 
-function Get-AllInstalledApplications {
-    # Get traditional desktop applications
-    $registryPaths = @(
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-    $desktopApps = foreach ($path in $registryPaths) {
-        Get-ItemProperty $path |
-        Where-Object { $_.DisplayName } |
-        Select-Object DisplayName, Publisher, InstallDate, DisplayVersion, UninstallString
-    }
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
 
-    # Get UWP (Universal Windows Platform) apps
-    $uwpApps = Get-AppxPackage |
-    Select-Object Name, PackageFullName, InstallLocation, @{Name = "Publisher"; Expression = { $_.PublisherId } }
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
 
-    # Combine both lists
-    $allApps = @($desktopApps) + @($uwpApps) |
-    Sort-Object DisplayName
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsWindow(IntPtr hWnd);
 
-    # Convert to JSON
-    $allApps | ConvertTo-Json -Depth 10
+    public const int SW_RESTORE = 9;
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    public static extern bool EnumWindows(EnumWindowsProc enumProc, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    public static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 }
+"@ 
 
-function Get-StartMenuApplications {
+function Get-StartMenuApps {
     $apps = @()
     $startMenuPaths = @(
         [Environment]::GetFolderPath("CommonStartMenu"),
@@ -95,7 +104,7 @@ function Get-UWPApps {
 
 function Get-AllInstalledApps {
     # Retrieve desktop applications
-    $desktopApps = Get-StartMenuApplications
+    $desktopApps = Get-StartMenuApps
 
     # Retrieve UWP applications
     $uwpApps = Get-UWPApps
@@ -106,47 +115,137 @@ function Get-AllInstalledApps {
     return $allApps | ConvertTo-Json -Depth 10
 }
 
-function Start-Application {
+function Get-UWPAppWindowHandle {
     param (
-        [string]$LaunchPath,
-        [string]$AppName
+        [string]$AppName,
+        [int]$TimeoutSeconds = 30
     )
 
-    # Start-Process "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
+    $rootElement = [System.Windows.Automation.AutomationElement]::RootElement
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $window = $null
 
-    # Launch the application without waiting
-    # [System.Diagnostics.Process]::Start($Path)
+    # Split the app name into parts for more flexible matching
+    $appNameParts = $AppName -split ' '
 
-    # Replace %20 with actual spaces in the LaunchPath
-    $LaunchPath = $LaunchPath -replace '%20', ' '
+    do {
+        $condition = [System.Windows.Automation.Condition]::TrueCondition
+        $windows = $rootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
 
-    try {
-        Start-Process $LaunchPath
+        foreach ($win in $windows) {
+            $winName = $win.Current.Name
+            $matches = $appNameParts | Where-Object { $winName -match $_ -and $_ -ne '' } | Measure-Object
+
+            # If any part matches (case-insensitive), select the window
+            if ($matches.Count -gt 0 -and [User32]::IsWindow($win.Current.NativeWindowHandle)) {
+                $window = $win
+                break
+            }
+        }
+
+        if ($null -ne $window) {
+            break
+        }
+
+        Start-Sleep -Milliseconds 500
     }
-    catch {
-        Write-Error "Failed to start the application: $AppName with $LaunchPath"
-        <#Do this if a terminating exception happens#>
-    }
+    while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds)
 
+    $stopwatch.Stop()
 
-    # Give some time for the application to start
-    Start-Sleep -Seconds 8
-
-    # Retrieve all processes with the given AppName (you might need to adjust the matching condition)
-    $processes = Get-Process | Where-Object { $_.MainWindowTitle -like "*$AppName*" -and $_.MainWindowHandle -ne 0 }
-
-    if ($processes.Count -eq 0) {
-        Write-Host "No matching processes found."
+    if ($null -eq $window) {
+        Write-Warning "Window for UWP app '$AppName' not found within timeout."
         return $null
     }
 
-    # If multiple processes are found, you might need to determine which one is the correct one
-    # For simplicity, let's assume the first one is the correct one
-    $targetProcess = $processes[0]
+    # Ensure that a valid window handle was obtained
+    if ($window.Current.NativeWindowHandle -eq 0) {
+        Write-Warning "Failed to get a valid window handle for '$AppName'."
+        return $null
+    }
 
-    $windowHandle = $targetProcess.MainWindowHandle
+    return $window.Current.NativeWindowHandle
+}
 
-    return $windowHandle
+function Get-ActiveWindowHandles {
+    $rootElement = [System.Windows.Automation.AutomationElement]::RootElement
+    $condition = [System.Windows.Automation.Condition]::TrueCondition
+    $windows = $rootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
+
+    $windowHandles = @()
+
+    foreach ($window in $windows) {
+        if ($window.Current.IsOffscreen -eq $false -and $window.Current.IsEnabled -eq $true) {
+            $windowHandles += $window.Current.NativeWindowHandle
+        }
+    }
+
+    return $windowHandles
+}
+
+function Start-ApplicationAndCaptureHandle {
+    param (
+        [string]$AppName,
+        [string]$LaunchPath
+    )
+
+    # Replace %20 with actual spaces in the LaunchPath
+    $AppName = $AppName -replace '%20', ' '
+    $AppNameParts = $AppName -split ' '
+    $LaunchPath = $LaunchPath -replace '%20', ' '
+    
+    $beforeHandles = Get-ActiveWindowHandles
+
+    # # Define a list to hold the window handles before launching the application
+    # $beforeHandles = New-Object System.Collections.Generic.List[IntPtr]
+
+    # # Callback method to process each window before launching the application
+    # $beforeCallback = {
+    #     param([IntPtr]$hWnd, [IntPtr]$lParam)
+
+    #     $beforeHandles.Add($hWnd)
+    #     # Continue enumeration
+    #     return $true
+    # }
+
+    # # Cast the script block to the delegate type
+    # $beforeEnumWindowsProc = $beforeCallback -as [User32+EnumWindowsProc]
+
+    # # Enumerate all top-level windows before launching the application
+    # [User32]::EnumWindows($beforeEnumWindowsProc, [IntPtr]::Zero) | Out-Null
+
+    # Launch the application
+    Start-Process -FilePath $LaunchPath
+    Start-Sleep -Seconds 10  # Adjust as needed
+
+    # # Define a list to hold the window handles after launching the application
+    # $afterHandles = New-Object System.Collections.Generic.List[IntPtr]
+
+    # # Callback method to process each window after launching the application
+    # $afterCallback = {
+    #     param([IntPtr]$hWnd, [IntPtr]$lParam)
+
+    #     $afterHandles.Add($hWnd)
+    #     # Continue enumeration
+    #     return $true
+    # }
+
+    # # Cast the script block to the delegate type
+    # $afterEnumWindowsProc = $afterCallback -as [User32+EnumWindowsProc]
+
+    # # Enumerate all top-level windows after launching the application
+    # [User32]::EnumWindows($afterEnumWindowsProc, [IntPtr]::Zero) | Out-Null
+
+    $afterHandles = Get-ActiveWindowHandles
+
+    # Find the difference in window handles
+    $newHandles = $afterHandles | Where-Object { $beforeHandles -notcontains $_ }
+
+    if ($newHandles.Count -gt 1) {
+        Write-Warning "Multiple new windows found after launching the application."
+    }
+
+    $newHandles[0]
 }
 
 function Get-ScreenshotOfAppWindowAsBase64 {
@@ -155,32 +254,33 @@ function Get-ScreenshotOfAppWindowAsBase64 {
         [IntPtr]$WindowHandle
     )
 
-    Add-Type @"
-    using System;
-    using System.Runtime.InteropServices;
-    public class User32 {
-        [DllImport("user32.dll", SetLastError=true)]
-        public static extern bool SetForegroundWindow(IntPtr hWnd);
+    # Attempt to restore and bring the window to the foreground
+    # [User32]::ShowWindow($WindowHandle, [User32]::SW_RESTORE) | Out-Null
+    [User32]::SetForegroundWindow($WindowHandle) | Out-Null
+
+    Start-Sleep -Milliseconds 500
+
+    # Check if our window is now the foreground window
+    $foregroundWindow = [User32]::GetForegroundWindow()
+    if ($foregroundWindow -ne $WindowHandle) {
+        Write-Warning "Failed to set the application window to the foreground."
+        return
     }
-"@ 
-
-    # Activate the window by its handle to ensure it's focused
-    $null = [User32]::SetForegroundWindow($WindowHandle)
-
-    # Give the window some time to focus
-    Start-Sleep -Milliseconds 100
 
     # Send Alt + PrtSc to capture the active window
-    [System.Windows.Forms.SendKeys]::SendWait("%{PRTSC}")
+    # [System.Windows.Forms.SendKeys]::SendWait("%{PRTSC}") | Out-Null
+    # [System.Windows.Forms.SendKeys]::SendWait("{PRTSC}") | Out-Null
+    [System.Windows.Forms.SendKeys]::SendWait("^{PRTSC}") | Out-Null
 
-    # Function to attempt to get the image from the clipboard
+    Start-Sleep -Milliseconds 100
+
     function Get-ClipboardImage {
         [OutputType([System.Drawing.Image])]
         param (
             [int]$retryCount = 5,
             [int]$delayMilliseconds = 100
         )
-
+    
         $img = $null
         for ($i = 0; $i -lt $retryCount; $i++) {
             try {
@@ -193,24 +293,20 @@ function Get-ScreenshotOfAppWindowAsBase64 {
                 Write-Verbose "Attempt $i to access the clipboard failed. Retrying..."
             }
         }
-
+    
         return $img
     }
 
-    # Attempt to get the screenshot from the clipboard with retries
-    $img = Get-ClipboardImage -retryCount 5 -delayMilliseconds 100
-
+    $img = Get-ClipboardImage -retryCount 15 -delayMilliseconds 100
     if ($null -eq $img) {
         Write-Error "Failed to capture the screenshot from the clipboard."
         return
     }
 
-    # Convert the image to base64
     $memoryStream = New-Object System.IO.MemoryStream
     $img.Save($memoryStream, [System.Drawing.Imaging.ImageFormat]::Png)
     $base64String = [Convert]::ToBase64String($memoryStream.ToArray())
 
-    # Cleanup
     $img.Dispose()
     $memoryStream.Dispose()
 
@@ -223,133 +319,192 @@ function Get-RootAutomationElementFromHandle {
         [IntPtr]$WindowHandle
     )
 
-    # Convert the handle to an AutomationElement
     $automationElement = [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandle)
-
+   
     return $automationElement
 }
 
-function Get-UIElementSnapshotIterative {
+function Get-UIWindowSnapshotIterative {
     param (
         [Parameter(Mandatory = $true)]
         [System.Windows.Automation.AutomationElement]$RootElement
     )
 
-    $queue = [System.Collections.Generic.Queue[System.Object]]::new()
-    $queue.Enqueue(@($RootElement, $null))  # Enqueue root element with no parent
+    # Create an XML document and the root XML element
+    $xmlDoc = New-Object System.Xml.XmlDocument
+    $rootXml = $xmlDoc.CreateElement("UIDOM")
+    $xmlDoc.AppendChild($rootXml) | Out-Null
 
-    $elementsIndex = @{}  # Initialize hashtable to index elements by Name
+    # Function to recursively add UI elements to the XML document
+    $addUIElementToXml = {
+        param($element, $parentXml)
 
-    while ($queue.Count -gt 0) {
-        $current = $queue.Dequeue()
-        $currentElement = $current[0]
+        # Create XML element for current UI element
+        $elementXml = $xmlDoc.CreateElement($element.Current.ControlType.ProgrammaticName -replace 'ControlType.', '')
+        $elementXml.SetAttribute("Name", $element.Current.Name)
+        $elementXml.SetAttribute("IsEnabled", $element.Current.IsEnabled)
+        $elementXml.SetAttribute("IsOffscreen", $element.Current.IsOffscreen)
+        $elementXml.SetAttribute("IsKeyboardFocusable", $element.Current.IsKeyboardFocusable)
+        $elementXml.SetAttribute("Location", $element.Current.BoundingRectangle.Location.ToString())
+        $elementXml.SetAttribute("Size", $element.Current.BoundingRectangle.Size.ToString())
 
-        $elementInfo = New-Object PSObject -Property @{
-            Name         = $currentElement.Current.Name
-            ControlType  = $currentElement.Current.ControlType.ProgrammaticName
-            AutomationId = $currentElement.Current.AutomationId
-            ClassName    = $currentElement.Current.ClassName
-            Children     = New-Object System.Collections.ArrayList
-        }
+        [void]$parentXml.AppendChild($elementXml)
 
-        # This is the root element, add it directly by its name to the hashtable
-        $elementsIndex[$currentElement.Current.Name] = $currentElement
-
-        # Use ContentViewWalker to get child elements
-        $child = [System.Windows.Automation.TreeWalker]::ContentViewWalker.GetFirstChild($currentElement)
-        
+        $child = [System.Windows.Automation.TreeWalker]::ContentViewWalker.GetFirstChild($element)
         while ($null -ne $child) {
-            # Instead of adding the child info directly, enqueue the child element with its parent info
-            $queue.Enqueue(@($child, $elementInfo))
+            & $addUIElementToXml $child $elementXml
             $child = [System.Windows.Automation.TreeWalker]::ContentViewWalker.GetNextSibling($child)
         }
     }
 
-    return $elementsIndex
+    # Start recursive UI element addition from the root
+    & $addUIElementToXml $RootElement $rootXml
+
+    # Return the XML document as a string
+    return $xmlDoc.OuterXml
 }
 
-function Get-ActiveWindowHandles {
-    $rootElement = [System.Windows.Automation.AutomationElement]::RootElement
-    $condition = [System.Windows.Automation.Condition]::TrueCondition
-    $windows = $rootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
+function Get-AppWindowUITree {
+    param (
+        [Parameter(Mandatory = $true)]
+        [IntPtr]$WindowHandle
+    )
 
-    $windowHandles = @()
+    $rootAutomationElement = Get-RootAutomationElementFromHandle -WindowHandle $WindowHandle
+    return Get-UIWindowSnapshotIterative -RootElement $rootAutomationElement
+}
 
-    foreach ($window in $windows) {
-        if ($window.Current.IsOffscreen -eq $false -and $window.Current.IsEnabled -eq $true) {
-            $handle = $window.Current.NativeWindowHandle
-            $handleHex = "0x{0:X}" -f $handle
-            $windowInfo = New-Object PSObject -Property @{
-                Handle    = $handleHex
-                Name      = $window.Current.Name
-                ProcessId = $window.Current.ProcessId
-            }
-            $windowHandles += $windowInfo
+function Get-AutomationElementFromXPath {
+    param(
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$WindowHandle,
+
+        [Parameter(Mandatory=$true)]
+        [string]$XPath
+    )
+
+    $XPath = $XPath -replace '%20', ' '
+
+    # Simplified function to parse the XPath using string split
+    function Get-ParsedXPath($XPath) {
+        # Splitting the XPath into parts by '[' to separate the ControlType and Name parts
+        $parts = $XPath.Split('[', 2)
+        if ($parts.Count -ne 2) {
+            Write-Error "Invalid XPath format"
+            return $null
+        }
+
+        # Keeping the ControlType part intact, removing just the leading '//'
+        $controlTypePart = $parts[0] -replace '^//', ''
+
+        # Adjusting the approach to extract the Name part cleanly
+        # First, removing the trailing ']' from the second part
+        $namePartWithExtra = $parts[1].TrimEnd(']')
+        # Then, extracting the name value correctly by removing the prefix '@Name="' and the closing quote '"'
+        $namePart = $namePartWithExtra -replace '@Name=', '' -replace "'", ""
+
+        if (-not $controlTypePart -or -not $namePart) {
+            Write-Error "Invalid XPath format"
+            return $null
+        }
+
+        return @{ ControlTypeName = $controlTypePart; Name = $namePart }
+    }
+
+    # Convert the control type name to the corresponding ControlType object
+    function Get-ControlType($controlTypeName) {
+        try {
+            $field = [System.Windows.Automation.ControlType].GetField($controlTypeName, [System.Reflection.BindingFlags]::Static -bor [System.Reflection.BindingFlags]::Public)
+            return $field.GetValue($null)
+        } catch {
+            Write-Error "Invalid ControlType name: $controlTypeName"
+            return $null
         }
     }
 
-    return $windowHandles
+    $parsedXPath = Get-ParsedXPath $XPath
+    if ($null -eq $parsedXPath) { return $null }
+
+    $controlType = Get-ControlType $parsedXPath.ControlTypeName
+    if ($null -eq $controlType) { return $null }
+
+    # # Assuming $rootElement is your starting AutomationElement
+    # $rootElement = [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandle)
+
+    # # Define the scope to search for all descendant elements
+    # $scope = [System.Windows.Automation.TreeScope]::Descendants
+
+    # # Use a condition that matches all elements
+    # $condition = [System.Windows.Automation.Condition]::TrueCondition
+
+    # # Find all descendant elements
+    # $descendants = $rootElement.FindAll($scope, $condition)
+
+    # # Iterate through each descendant element
+    # foreach ($element in $descendants) {
+    #     # Fetch some common properties
+    #     $name = $element.Current.Name
+    #     $controlType = $element.Current.ControlType.ProgrammaticName
+
+    #     # Print out element properties
+    #     Write-Error "Name: $name, ControlType: $controlType"
+    # }
+
+    # return $descendants
+
+    $rootElement = [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandle)
+    $nameCondition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $parsedXPath.Name)
+    $controlTypeCondition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $controlType)
+    $andCondition = [System.Windows.Automation.AndCondition]::new($controlTypeCondition, $nameCondition)
+
+    $foundElement = $rootElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $andCondition)
+    if ($null -eq $foundElement) {
+        Write-Error "Element not found for the given XPath. $XPath"
+        return $null
+    }
+
+    return $foundElement
 }
 
-function Invoke-UIElement {
+function Invoke-UIElementTap {
     param (
-        [Parameter(Mandatory = $true)]
-        [System.Windows.Automation.AutomationElement]$Element
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$WindowHandle,
+
+        [Parameter(Mandatory=$true)]
+        [string]$XPath
     )
 
-    $invokePattern = $null
+    $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandle -XPath $XPath
 
-    if ($Element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invokePattern)) {
+    $invokePattern = $null
+    if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invokePattern)) {
         $invokePattern.Invoke()
+        return $true
     }
-    else {
-        Write-Host "Element does not support the InvokePattern."
-    }
+    
+    Write-Host "Element does not support the InvokePattern."
+    return $false
 }
 
 function Set-UIElementText {
     param (
-        [Parameter(Mandatory = $true)]
-        [System.Windows.Automation.AutomationElement]$Element,
+        [Parameter(Mandatory=$true)]
+        [IntPtr]$WindowHandle,
+        [Parameter(Mandatory=$true)]
+        [string]$XPath,
         [Parameter(Mandatory = $true)]
         [string]$Text
     )
 
-    $valuePattern = $null
+    $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandle -XPath $XPath
 
+    $valuePattern = $null
     if ($Element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern)) {
         $valuePattern.SetValue($Text)
-    }
-    else {
-        Write-Host "Element does not support the ValuePattern."
-    }
-}
-
-function Invoke-UIElementByClassName {
-    param (
-        [Parameter(Mandatory = $true)]
-        [System.Windows.Automation.AutomationElement]$Root,
-        [Parameter(Mandatory = $true)]
-        [string]$ClassName
-    )
-
-    # Find the element by class name
-    $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty, $ClassName)
-    $element = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-
-    if ($null -eq $element) {
-        Write-Host "Element with class name '$ClassName' not found."
-        return
+        return $true
     }
 
-    # Check if the element supports the InvokePattern and invoke it
-    $invokePattern = $null
-
-    if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invokePattern)) {
-        $invokePattern.Invoke()
-        Write-Host "Element with class name '$ClassName' invoked."
-    }
-    else {
-        Write-Host "Element with class name '$ClassName' does not support the InvokePattern."
-    }
+    Write-Host "Element does not support the ValuePattern."
+    return $false
 }

@@ -13,7 +13,14 @@ describe("Windows Device Interaction Tests", function() {
   });
 
   afterEach(async function() {
-    // This runs after each test. Clean up resources, like closing the Appium session.
+    // This runs after each gh k. Clean up resources, like closing the Appium session.
+  });
+
+  const vsCodeQuery = "Write a new hello world in C# in Visual Studio 2022.";
+  it(vsCodeQuery, async function() {
+    const results = await windowsAgent.runAsync({
+      query: vsCodeQuery
+    });
   });
 
   const pptPresentationQuery = "Help me create a presentation on 'AI in Healthcare' using PowerPoint.";
@@ -44,7 +51,7 @@ describe("Windows Device Interaction Tests", function() {
     });
   });
 
-  const findLatestMGKQuery = "I'd like to listen the latest MGK single called 'don't let me go' on Spotify.";
+  const findLatestMGKQuery = "I'd like to listen the latest MGK single called 'don't let me go' on SoundCloud.";
   it(findLatestMGKQuery, async function() {
     const results = await windowsAgent.runAsync({
       query: findLatestMGKQuery
