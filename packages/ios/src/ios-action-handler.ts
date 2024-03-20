@@ -23,12 +23,12 @@ export class iOSActionHandler {
                     codeEvalFunc: async (codeSelector) => {
                       return await this.performActionTap(codeSelector);
                     },
-                  });
+                });
           
-                  if (!codeSelectorsResult.success) {
-                    console.log(`The code action was unsuccessful after ${this.runCodeSelectorMaxRetries} retries.`);
-                  }
-                  console.log(`The code action was successful.`);                break;
+                if (!codeSelectorsResult.success) {
+                console.log(`The code action was unsuccessful after ${this.runCodeSelectorMaxRetries} retries.`);
+                }
+                console.log(`The code action was successful.`);                break;
             case 'type':
                 await this.performActionTypeOnKeyboard(nextAction.actionInput);
                 break;

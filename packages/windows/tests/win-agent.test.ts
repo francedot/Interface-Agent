@@ -1,4 +1,6 @@
 import { WindowsAgent } from "../src/win-agent";
+import { ToolsetPlan } from "@navaiguide/core";
+import { tPrompt_Blank_Word, tPrompt_Word } from "./tasks-to-be-done/word";
 
 describe("Windows Device Interaction Tests", function() {
 
@@ -6,6 +8,7 @@ describe("Windows Device Interaction Tests", function() {
 
   before(async function() {
     windowsAgent = new WindowsAgent();
+    await windowsAgent.initAsync();
   });
 
   beforeEach(async function() {
@@ -16,12 +19,35 @@ describe("Windows Device Interaction Tests", function() {
     // This runs after each gh k. Clean up resources, like closing the Appium session.
   });
 
+  const wordPlan: ToolsetPlan = {
+    description: "Create a resume using Word.",
+    steps: [
+      {
+        toolId: "Word",
+        toolPrompt: tPrompt_Blank_Word
+      }
+    ]
+  };
+  it(wordPlan.description, async function() {
+    const results = await windowsAgent.runFromPlanAsync({
+      plan: wordPlan
+    });
+  });
+
   const vsCodeQuery = "Write a new hello world in C# in Visual Studio 2022.";
   it(vsCodeQuery, async function() {
     const results = await windowsAgent.runAsync({
       query: vsCodeQuery
     });
   });
+
+  const wordQuery = "Help me create a document on 'AI in Healthcare' using Word.";
+  it(wordQuery, async function() {
+    const results = await windowsAgent.runAsync({
+      query: wordQuery
+    });
+  });
+
 
   const pptPresentationQuery = "Help me create a presentation on 'AI in Healthcare' using PowerPoint.";
   it(pptPresentationQuery, async function() {

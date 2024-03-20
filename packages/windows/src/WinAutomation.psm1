@@ -36,6 +36,18 @@ public class User32 {
     public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll", EntryPoint="SetCursorPos")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetCursorPos(int x, int y);
+
+    [DllImport("user32.dll", EntryPoint="mouse_event")]
+    public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam);
+
+    public const uint WM_SETTEXT = 0x000C;
 }
 "@ 
 
@@ -189,10 +201,7 @@ function Start-ApplicationAndCaptureHandle {
         [string]$LaunchPath
     )
 
-    # Replace %20 with actual spaces in the LaunchPath
-    $AppName = $AppName -replace '%20', ' '
     $AppNameParts = $AppName -split ' '
-    $LaunchPath = $LaunchPath -replace '%20', ' '
     
     $beforeHandles = Get-ActiveWindowHandles
 
@@ -251,18 +260,19 @@ function Start-ApplicationAndCaptureHandle {
 function Get-ScreenshotOfAppWindowAsBase64 {
     param (
         [Parameter(Mandatory=$true)]
-        [IntPtr]$WindowHandle
+        [Int]$WindowHandle
     )
 
+    $WindowHandlePtr = [IntPtr]$WindowHandle
     # Attempt to restore and bring the window to the foreground
     # [User32]::ShowWindow($WindowHandle, [User32]::SW_RESTORE) | Out-Null
-    [User32]::SetForegroundWindow($WindowHandle) | Out-Null
+    [User32]::SetForegroundWindow($WindowHandlePtr) | Out-Null
 
     Start-Sleep -Milliseconds 500
 
     # Check if our window is now the foreground window
     $foregroundWindow = [User32]::GetForegroundWindow()
-    if ($foregroundWindow -ne $WindowHandle) {
+    if ($foregroundWindow -ne $WindowHandlePtr) {
         Write-Warning "Failed to set the application window to the foreground."
         return
     }
@@ -316,15 +326,16 @@ function Get-ScreenshotOfAppWindowAsBase64 {
 function Get-RootAutomationElementFromHandle {
     param (
         [Parameter(Mandatory = $true)]
-        [IntPtr]$WindowHandle
+        [Int]$WindowHandle
     )
 
-    $automationElement = [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandle)
+    $WindowHandlePtr = [IntPtr]$WindowHandle
+    $automationElement = [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandlePtr)
    
     return $automationElement
 }
 
-function Get-UIWindowSnapshotIterative {
+function Get-UIWindowSnapshot {
     param (
         [Parameter(Mandatory = $true)]
         [System.Windows.Automation.AutomationElement]$RootElement
@@ -344,9 +355,38 @@ function Get-UIWindowSnapshotIterative {
         $elementXml.SetAttribute("Name", $element.Current.Name)
         $elementXml.SetAttribute("IsEnabled", $element.Current.IsEnabled)
         $elementXml.SetAttribute("IsOffscreen", $element.Current.IsOffscreen)
-        $elementXml.SetAttribute("IsKeyboardFocusable", $element.Current.IsKeyboardFocusable)
         $elementXml.SetAttribute("Location", $element.Current.BoundingRectangle.Location.ToString())
         $elementXml.SetAttribute("Size", $element.Current.BoundingRectangle.Size.ToString())
+        $helpText = $element.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::HelpTextProperty)
+        if ($null -ne $helpText -and $helpText -ne '') {
+            $elementXml.SetAttribute("Tooltip", $helpText)
+        }
+
+        # Determine if the element is editable
+        $isEditable = $false
+        $valuePattern = [ref] $null
+        if ($element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, $valuePattern)) {
+            $isEditable = $true
+        }
+        elseif ($element.Current.IsKeyboardFocusable) {
+            $isEditable = $true
+        }
+        $elementXml.SetAttribute("IsEditable", $isEditable)
+
+        # Determine if the element is tappable (supports InvokePattern)
+        $isTappable = $false
+        $invokePattern = [ref] $null
+        if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, $invokePattern)) {
+            $isTappable = $true
+        }
+        $elementXml.SetAttribute("IsTappable", $isTappable)
+ 
+        # Check for TextPattern and add text content if available
+        $textPattern = [ref] $null
+        if ($element.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, $textPattern)) {
+            $text = $textPattern.Value.DocumentRange.GetText(-1)
+            $elementXml.SetAttribute("Text", $text)
+        }
 
         [void]$parentXml.AppendChild($elementXml)
 
@@ -364,26 +404,27 @@ function Get-UIWindowSnapshotIterative {
     return $xmlDoc.OuterXml
 }
 
-function Get-AppWindowUITree {
+function Get-WindowUITree {
     param (
         [Parameter(Mandatory = $true)]
-        [IntPtr]$WindowHandle
+        [Int]$WindowHandle
     )
 
-    $rootAutomationElement = Get-RootAutomationElementFromHandle -WindowHandle $WindowHandle
-    return Get-UIWindowSnapshotIterative -RootElement $rootAutomationElement
+    $WindowHandlePtr = [IntPtr]$WindowHandle
+    $rootAutomationElement = Get-RootAutomationElementFromHandle -WindowHandle $WindowHandlePtr
+    return Get-UIWindowSnapshot -RootElement $rootAutomationElement
 }
 
 function Get-AutomationElementFromXPath {
     param(
         [Parameter(Mandatory=$true)]
-        [IntPtr]$WindowHandle,
+        [Int]$WindowHandle,
 
         [Parameter(Mandatory=$true)]
         [string]$XPath
     )
 
-    $XPath = $XPath -replace '%20', ' '
+    $WindowHandlePtr = [IntPtr]$WindowHandle
 
     # Simplified function to parse the XPath using string split
     function Get-ParsedXPath($XPath) {
@@ -411,7 +452,6 @@ function Get-AutomationElementFromXPath {
         return @{ ControlTypeName = $controlTypePart; Name = $namePart }
     }
 
-    # Convert the control type name to the corresponding ControlType object
     function Get-ControlType($controlTypeName) {
         try {
             $field = [System.Windows.Automation.ControlType].GetField($controlTypeName, [System.Reflection.BindingFlags]::Static -bor [System.Reflection.BindingFlags]::Public)
@@ -428,31 +468,7 @@ function Get-AutomationElementFromXPath {
     $controlType = Get-ControlType $parsedXPath.ControlTypeName
     if ($null -eq $controlType) { return $null }
 
-    # # Assuming $rootElement is your starting AutomationElement
-    # $rootElement = [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandle)
-
-    # # Define the scope to search for all descendant elements
-    # $scope = [System.Windows.Automation.TreeScope]::Descendants
-
-    # # Use a condition that matches all elements
-    # $condition = [System.Windows.Automation.Condition]::TrueCondition
-
-    # # Find all descendant elements
-    # $descendants = $rootElement.FindAll($scope, $condition)
-
-    # # Iterate through each descendant element
-    # foreach ($element in $descendants) {
-    #     # Fetch some common properties
-    #     $name = $element.Current.Name
-    #     $controlType = $element.Current.ControlType.ProgrammaticName
-
-    #     # Print out element properties
-    #     Write-Error "Name: $name, ControlType: $controlType"
-    # }
-
-    # return $descendants
-
-    $rootElement = [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandle)
+    $rootElement = [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandlePtr)
     $nameCondition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $parsedXPath.Name)
     $controlTypeCondition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $controlType)
     $andCondition = [System.Windows.Automation.AndCondition]::new($controlTypeCondition, $nameCondition)
@@ -466,45 +482,255 @@ function Get-AutomationElementFromXPath {
     return $foundElement
 }
 
+function Get-ClosestEditableElement {
+    param (
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Automation.AutomationElement]$Element
+    )
+
+    # Check if the element itself is keyboard focusable
+    if ($Element.Current.IsKeyboardFocusable) {
+        return $Element
+    }
+
+    # Search among descendants for a keyboard focusable element
+    $childWalker = [System.Windows.Automation.TreeWalker]::ContentViewWalker
+    $descendant = $childWalker.GetFirstChild($Element)
+
+    while ($null -ne $descendant) {
+        if ($descendant.Current.IsKeyboardFocusable) {
+            return $descendant
+        }
+        $descendant = $childWalker.GetNextSibling($descendant)
+    }
+
+    # If no focusable descendant is found, search among ancestors
+    $treeWalker = [System.Windows.Automation.TreeWalker]::RawViewWalker
+    $ancestor = $treeWalker.GetParent($Element)
+
+    while ($null -ne $ancestor) {
+        if ($ancestor.Current.IsKeyboardFocusable) {
+            return $ancestor
+        }
+        $ancestor = $treeWalker.GetParent($ancestor)
+    }
+
+    # If no suitable element is found, return $null
+    return $null
+}
+
+function Get-ClosestTappableElement {
+    param (
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Automation.AutomationElement]$Element
+    )
+
+    $invokePattern = [System.Windows.Automation.InvokePattern]::Pattern
+
+    if ($Element.GetCurrentPattern($invokePattern)) {
+        return $Element
+    }
+
+    $childWalker = [System.Windows.Automation.TreeWalker]::ContentViewWalker
+    $descendant = $childWalker.GetFirstChild($Element)
+
+    while ($null -ne $descendant) {
+        if ($descendant.GetCurrentPattern($invokePattern)) {
+            return $descendant
+        }
+        $descendant = $childWalker.GetNextSibling($descendant)
+    }
+
+    $treeWalker = [System.Windows.Automation.TreeWalker]::RawViewWalker
+    $ancestor = $treeWalker.GetParent($Element)
+
+    while ($null -ne $ancestor) {
+        if ($ancestor.GetCurrentPattern($invokePattern)) {
+            return $ancestor
+        }
+        $ancestor = $treeWalker.GetParent($ancestor)
+    }
+
+    return $null
+}
+
+function Invoke-ExpandComboBox {
+    param (
+        [Parameter(Mandatory = $true)]
+        [System.Windows.Automation.AutomationElement]$ComboBoxElement
+    )
+
+    $expandCollapsePattern = $null
+    if ($ComboBoxElement.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$expandCollapsePattern)) {
+        $expandCollapsePattern.Expand()
+        Write-Output "Combo box expanded."
+    } else {
+        Write-Error "Combo box does not support ExpandCollapsePattern."
+    }
+}
+
 function Invoke-UIElementTap {
     param (
         [Parameter(Mandatory=$true)]
-        [IntPtr]$WindowHandle,
+        [Int]$WindowHandle,
 
         [Parameter(Mandatory=$true)]
         [string]$XPath
     )
 
-    $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandle -XPath $XPath
+    $WindowHandlePtr = [IntPtr]$WindowHandle
+    $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandlePtr -XPath $XPath
+    # $element = Get-ClosestTappableElement -Element $element
 
-    $invokePattern = $null
-    if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invokePattern)) {
-        $invokePattern.Invoke()
-        return $true
+    if ($null -eq $element) {
+        Write-Error "Unable to find a tappable element."
+        return $false
     }
+
+    try {
+        $expandCollapsePattern = $null
+        if ($element.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$expandCollapsePattern)) {
+            $expandCollapsePattern.Expand()
+            return $true
+        }
+    }
+    catch {
+    }
+
+    try {
+        $invokePattern = $null
+        if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invokePattern)) {
+            $invokePattern.Invoke() | Out-Null
+            return $true
+        }
+    }
+    catch {
+    }
+
+    Invoke-UIElementTapByCoordinates -WindowHandle $WindowHandle -XPath $XPath
     
-    Write-Host "Element does not support the InvokePattern."
+    # try {
+    #     $togglePattern = $null
+    #     if ($element.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)) {
+    #         $togglePattern.Toggle() | Out-Null
+    #         return $true
+    #     }
+    # }
+    # catch {
+    # }
+
+    Write-Host "Element does not support Tap."
     return $false
 }
 
+
 function Set-UIElementText {
     param (
-        [Parameter(Mandatory=$true)]
-        [IntPtr]$WindowHandle,
-        [Parameter(Mandatory=$true)]
-        [string]$XPath,
         [Parameter(Mandatory = $true)]
-        [string]$Text
+        [Int]$WindowHandle,
+
+        [Parameter(Mandatory = $true)]
+        [string]$XPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('overwrite', 'append')]
+        [string]$Mode
     )
 
     $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandle -XPath $XPath
-
-    $valuePattern = $null
-    if ($Element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern)) {
-        $valuePattern.SetValue($Text)
-        return $true
+    if ($null -eq $element) {
+        Write-Error "Unable to find element."
+        return $false
     }
 
-    Write-Host "Element does not support the ValuePattern."
-    return $false
+    $element = Get-ClosestEditableElement -Element $element
+    if ($null -eq $element) {
+        Write-Error "Unable to find an editable element."
+        return $false
+    }
+
+    $element.SetFocus() | Out-Null
+    if ($Mode -eq 'overwrite') {
+        [System.Windows.Forms.SendKeys]::SendWait("^{HOME}") | Out-Null
+        [System.Windows.Forms.SendKeys]::SendWait("^+{END}") | Out-Null
+        [System.Windows.Forms.SendKeys]::SendWait("{DEL}") | Out-Null
+    } elseif ($Mode -eq 'append') {
+        [System.Windows.Forms.SendKeys]::SendWait("{END}") | Out-Null
+    }
+    [System.Windows.Forms.SendKeys]::SendWait($Text) | Out-Null
+
+    return $true
+}
+
+function Invoke-UIElementTapByCoordinates {
+    param (
+        [Parameter(Mandatory=$true)]
+        [Int]$WindowHandle,
+
+        [Parameter(Mandatory=$true)]
+        [string]$XPath
+    )
+
+    try {
+        $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandle -XPath $XPath
+        if ($null -eq $element) {
+            Write-Error "Unable to find element."
+            return $false
+        }
+
+        $rect = $element.Current.BoundingRectangle
+        $centerX = [int]($rect.X)
+        $centerY = [int]($rect.Y)
+
+        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($centerX, $centerY)
+
+        # Mouse down and up to simulate a click
+        $MOUSEEVENTF_LEFTDOWN = 0x02
+        $MOUSEEVENTF_LEFTUP = 0x04
+        [User32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0) | Out-Null
+        [User32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, 0) | Out-Null
+        Start-Sleep -Milliseconds 500 # Short pause between down and up for better reliability
+
+        [User32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0) | Out-Null
+        [User32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, 0) | Out-Null
+        
+        # Write-Host "Tap invoked at $centerX, $centerY."
+        return $true
+    }
+    catch {
+        return $false;
+    }
+}
+
+function Set-UIElementTextByCoordinates {
+    param (
+        [Parameter(Mandatory=$true)]
+        [Int]$WindowHandle,
+        [Parameter(Mandatory=$true)]
+        [string]$XPath,
+        [Parameter(Mandatory=$true)]
+        [string]$Text
+    )
+
+    # First, use Invoke-UIElementTapByCoordinates to focus the element
+    $tapResult = Invoke-UIElementTapByCoordinates -WindowHandle $WindowHandle -XPath $XPath
+    if (-not $tapResult) {
+        Write-Error "Failed to tap the element."
+        return $false
+    }
+
+    # Wait a bit after tapping to ensure the element is focused
+    Start-Sleep -Milliseconds 100
+
+    # Then, send the text to the now-focused element
+    # Pre-process text to escape special characters that SendKeys interprets differently
+    $processedText = $Text -replace '([+^%~(){}])', '{$1}'
+    
+    [System.Windows.Forms.SendKeys]::SendWait($processedText) | Out-Null
+
+    Write-Host "Text '$Text' has been set to the element identified by XPath: $XPath."
+    return $true
 }

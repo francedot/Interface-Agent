@@ -21,20 +21,26 @@ export class WindowsActionHandler {
             codeEvalFunc: async (codeSelector) => {
                 switch (nextAction.actionType) {
                     case 'tap':
-                        return await performActionTap(currentPage.winHandle, codeSelector);
+                        await performActionTap(currentPage.winHandle, codeSelector);
+                        break;
                     case 'type':
-                        return await performActionType(currentPage.winHandle, codeSelector, nextAction.actionInput);
+                        await performActionType(currentPage.winHandle, codeSelector, nextAction.actionInput, nextAction.actionInputEditMode);
+                        break;
                     case 'scroll':
                         throw new Error(`Action type ${nextAction.actionType} is not supported`);
                     default:
                         throw new Error(`Action type ${nextAction.actionType} is not supported`);
                 }
+
+                return true;
             },
           });
   
           if (!codeSelectorsResult.success) {
             console.log(`The code action was unsuccessful after ${this.runCodeSelectorMaxRetries} retries.`);
+            return;
           }
+
           console.log(`The code action was successful.`);
     }
 }

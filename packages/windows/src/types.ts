@@ -1,5 +1,7 @@
-import { App, NavAIGuidePage, PageScreen, reduceXmlDomWithChunks } from "@navaiguide/core";
-import { getAppWindowUITree, takeAppScreenshotAsync } from "./utils";
+import { NavAIGuidePage, PageScreen, Tool, reduceXmlDomWithChunks } from "@navaiguide/core";
+import { getWindowUITree, takeToolScreenshotAsync } from "./utils";
+
+export type ToolsetMap = Map<string, Tool>;
 
 /**
  * Class representing a NavAIGuide page as input to NavAIGuide.
@@ -10,15 +12,16 @@ export class WindowsNavAIGuidePage extends NavAIGuidePage {
 
     winHandle: string;
 
-    constructor({ winHandle, location, screens, domContent, reducedDomContent, reducedDomChunks }: {
+    constructor({ winHandle, location, screens, domContent, reducedDomContent, reducedDomChunks, minimizedDomContent }: {
       winHandle: string;
       location: string;
       screens: PageScreen[];
       domContent: string;
       reducedDomContent: string;
       reducedDomChunks: string[];
+      minimizedDomContent?: string;
   }) {
-      super({ location, screens, domContent, reducedDomContent, reducedDomChunks});
+      super({ location, screens, domContent, reducedDomContent, reducedDomChunks, minimizedDomContent });
       this.winHandle = winHandle;
     }
   
@@ -33,20 +36,27 @@ export class WindowsNavAIGuidePage extends NavAIGuidePage {
      */
     public static async fromUIAutomationAsync({
       location,
-      winHandle
+      winHandle,
+      isVisualMode = false,
     }: {
       location: string;
       winHandle: string;
+      isVisualMode?: boolean;
     }): Promise<WindowsNavAIGuidePage> {
-      const screenshot = await takeAppScreenshotAsync(winHandle);
-      const pageScreens = [
-        {
-          base64Value: screenshot,
-          metadata: "TODO: Add metadata here.",
-          screenSize: { width: 0, height: 0 },
-        } as PageScreen,
-      ];
-      const domContent = await getAppWindowUITree(winHandle);
+
+      let pageScreens: PageScreen[] = [];
+      if (isVisualMode) {
+        const screenshot = await takeToolScreenshotAsync(winHandle);
+        pageScreens = [
+          {
+            base64Value: screenshot,
+            metadata: "TODO: Add metadata here.",
+            screenSize: { width: 0, height: 0 },
+          } as PageScreen,
+        ];
+      }
+
+      const domContent = await getWindowUITree(winHandle);
       const { reducedDomContent, chunks } = reduceXmlDomWithChunks(domContent);
   
       return new WindowsNavAIGuidePage({

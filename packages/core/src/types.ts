@@ -225,6 +225,7 @@ export class NavAIGuidePage {
   domContent: string;
   reducedDomContent: string;
   reducedDomChunks: string[];
+  minimizedDomContent?: string;
 
   /**
    * Creates a NavAIGuidePage instance.
@@ -240,19 +241,22 @@ export class NavAIGuidePage {
     screens,
     domContent,
     reducedDomContent,
-    reducedDomChunks
+    reducedDomChunks,
+    minimizedDomContent
   }: {
     location: string;
     screens: PageScreen[];
     domContent: string;
     reducedDomContent: string;
     reducedDomChunks: string[];
+    minimizedDomContent?: string;
   }) {
     this.location = location;
     this.screens = screens;
     this.domContent = domContent;
     this.reducedDomContent = reducedDomContent;
     this.reducedDomChunks = reducedDomChunks;
+    this.minimizedDomContent = minimizedDomContent;
   }
 
   /**
@@ -325,14 +329,14 @@ export type BoundingBox = [number, number, number, number]; // [topLeftX, topLef
 export type ActionType = 'tap' | 'type' | 'scroll';
 
 /**
- * Interface representing a source application.
+ * Interface representing a local tool.
  * 
  * @property {string} id - The unique identifier of the application.
  * @property {string} title - The title of the application.
  * @property {string} description - A description of the application.
  * @property {string} path - The path to the application, if applicable.
  */
-export interface App {
+export interface Tool {
   id: string;
   title: string;
   description?: string;
@@ -341,25 +345,28 @@ export interface App {
 }
 
 /**
- * Interface representing an Apps Plan.
- * 
- * @property {string} description - The description of the plan.
- * @property {string} steps - A sequence of steps to be performed in the plan.
- */
-export interface AppsPlan {
-  description: string;
-  steps: AppPlanStep[];
-}
-
-/**
- * Interface representing a Apps Plan Step.
+ * Interface representing a Tools Plan Step.
  * 
  * @property {string} appId - The application id.
  * @property {string} appEndGoal - The end goal to pursue in the application.
  */
-export interface AppPlanStep {
-  appId: string;
-  appEndGoal: string;
+export interface ToolStep {
+  toolId: string;
+  toolPrompt: string;
+}
+
+export type Toolset = Tool[];
+export type ToolSteps = ToolStep[];
+
+/**
+ * Interface representing a Tools Plan.
+ * 
+ * @property {string} description - The description of the plan.
+ * @property {string} steps - A sequence of steps to be performed in the plan.
+ */
+export interface ToolsetPlan {
+  description: string;
+  steps: ToolSteps;
 }
 
 /**
@@ -380,13 +387,14 @@ export interface AppPlanStep {
 export interface NLAction {
   previousActionSuccess: boolean | null;
   previousActionSuccessExplanation: string;
-  endGoalMet: boolean;
-  endGoalMetExplanation: string;
+  toolPromptCompleted: boolean;
+  toolPromptCompletedExplanation: string;
   actionType: ActionType;
   actionTarget: string;
   // actionTargetBoundingBox: BoundingBox;
   actionDescription: string;
   actionInput: string;
+  actionInputEditMode: "overwrite" | "append";
   actionScrollDirection: "up" | "down";
   actionExpectedOutcome: string;
   actionTargetVisualDescription: string;
