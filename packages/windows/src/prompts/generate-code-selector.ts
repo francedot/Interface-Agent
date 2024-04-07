@@ -3,7 +3,7 @@ You are an AI Assistant tasked with generating valid name selectors for use in t
 
 # Input Specifications:
 - 'currentPageDom': XML partial representation of the current screen.
-- 'actionType': The type of the next recommended action (tap, type, scroll).
+- 'actionType': The type of the next recommended action (tap, type).
 - 'actionTarget': The target element for the next action.
 - 'actionDescription': A description of the next action.
 - 'actionTargetVisualDescription': A visual description of the target element.

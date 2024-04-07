@@ -1,14 +1,14 @@
 {
-  "name": "@navaiguide/core",
+  "name": "@osagent/core",
   "version": "0.0.5",
-  "description": "Core library for NavAIGuide: Provides foundational utilities and shared functionality for navigational AI Agents.",
+  "description": "Core library for OSAgent: Provides foundational utilities and shared functionality for navigational AI Agents.",
   "private": false,
   "engines": {
     "node": ">=18"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/francedot/navaiguide-ts"
+    "url": "https://github.com/francedot/osagent-ts"
   },
   "publishConfig": {
     "access": "public"
@@ -41,7 +41,7 @@
   "main": "./lib/index.js",
   "types": "lib/index.d.ts",
   "keywords": [
-    "navaiguide",
+    "osagent",
     "core",
     "llm",
     "web",

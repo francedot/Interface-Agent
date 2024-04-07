@@ -1,6 +1,6 @@
-# <img align="center" src="https://github.com/francedot/NavAIGuide/blob/main/img/logo.png?raw=true" width="38"> NavAIGuide-Core
+# <img align="center" src="https://github.com/francedot/OSAgent/blob/main/img/logo.png?raw=true" width="38"> OSAgent-Core
 
-Core package used to build AI agents with NavAIGuide.
+Core package used to build AI agents with OSAgent.
 
 ## 💻 Getting Started
 
@@ -11,18 +11,18 @@ Core package used to build AI agents with NavAIGuide.
 
 ### Steps
 
-#### 1. ⚡️ Install NavAIGuide-Core
+#### 1. ⚡️ Install OSAgent-Core
 
-You can choose to either clone the repository or use npm, yarn, or pnpm to install NavAIGuide-Core.
+You can choose to either clone the repository or use npm, yarn, or pnpm to install OSAgent-Core.
 
 #### npm:
 ```bash
-npm install @navaiguide/core
+npm install @osagent/core
 ```
 
 #### Yarn:
 ```bash
-yarn add @navaiguide/core
+yarn add @osagent/core
 ```
 
 #### 2. Configure OpenAI or AzureAI Key
@@ -39,4 +39,4 @@ Configure the necessary environment variables. For example, locally through `.en
   - `AZURE_AI_API_GPT35TURBO_INSTANCE_NAME`: Instance Name for GPT-3.5 Turbo with JSON mode and GPT-3.5 with 16k.
   - `AZURE_AI_API_GPT4TURBOVISION_INSTANCE_NAME`: Instance Name for GPT-4 Turbo with Vision.
 
-You can also explicitly provide these variables as part of the constructor for the `NavAIGuide` or `BaseNavAIGuideAgent` class.
+You can also explicitly provide these variables as part of the constructor for the `OSAgent` or `BaseOSAgentAgent` class.

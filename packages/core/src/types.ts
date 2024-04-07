@@ -1,4 +1,15 @@
-import { getImageDimensionsFromBase64, insertTextIntoImage, reduceHtmlDomWithChunks } from "./utils";
+import { insertTextIntoImage } from "./utils";
+
+export type AIModelEnum = ClaudeAIEnum | OpenAIEnum;
+
+/**
+ * Enum representing different ClaudeAI models.
+ */
+export enum ClaudeAIEnum {
+  CLAUDE_3_OPUS = "claude-3-opus-20240229",
+  CLAUDE_3_SONNET = "claude-3-sonnet-20240229",
+  CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
+}
 
 /**
  * Enum representing different OpenAI models.
@@ -147,6 +158,17 @@ export declare interface AzureAIInput {
 }
 
 /**
+ * Interface representing the input for ClaudeAI.
+ */
+export declare interface ClaudeAIInput {
+  /**
+   * The API key for ClaudeAI.
+   */
+  claudeAIApiKey?: string;
+}
+
+
+/**
  * Interface representing a message in the OpenAI response.
  */
 export interface Message {
@@ -164,7 +186,7 @@ export interface Error {
 /**
  * Interface representing the OpenAI response.
  */
-export interface OpenAIResponse {
+export interface AIResponse {
   id: string;
   object: string;
   created: number;
@@ -172,10 +194,10 @@ export interface OpenAIResponse {
   choices: Choice[];
   usage: Usage;
   system_fingerprint: null;
-  error: OpenAIError;
+  error: AIError;
 }
 
-export class OpenAIError extends Error {
+export class AIError extends Error {
   code: string;
 
   constructor(message: string, code: string) {
@@ -212,14 +234,14 @@ export interface StartTask {
 }
 
 /**
- * Class representing a NavAIGuide page as input to NavAIGuide.
+ * Class representing a OSAgent page as input to OSAgent.
  * @property {string} location - The location of the page.
  * @property {PageScreen[]} screens - The screens of the page.
  * @property {string} domContent - The DOM content of the page.
  * @property {string} reducedDomContent - The reduced DOM content of the page.
  * @property {string[]} reducedDomChunks - The reduced DOM chunks of the page.
  */
-export class NavAIGuidePage {
+export class OSAgentPage {
   location: string;
   screens: PageScreen[];
   domContent: string;
@@ -228,8 +250,8 @@ export class NavAIGuidePage {
   minimizedDomContent?: string;
 
   /**
-   * Creates a NavAIGuidePage instance.
-   * @param {Object} params - The parameters for the NavAIGuidePage.
+   * Creates a OSAgentPage instance.
+   * @param {Object} params - The parameters for the OSAgentPage.
    * @param {string} params.location - The location of the page.
    * @param {PageScreen[]} params.screens - The screens of the page.
    * @param {string} params.domContent - The DOM content of the page.
@@ -261,9 +283,9 @@ export class NavAIGuidePage {
 
   /**
    * Draws a watermark on the screens of the page.
-   * @returns {Promise<NavAIGuidePage>} - The page with watermarked screens.
+   * @returns {Promise<OSAgentPage>} - The page with watermarked screens.
    */
-  public async drawBeforeWatermarkAsync(): Promise<NavAIGuidePage> {
+  public async drawBeforeWatermarkAsync(): Promise<OSAgentPage> {
 
     // Watermark the image with a BEFORE watermark
     await Promise.all(this.screens.map(async (screen) => {
@@ -276,9 +298,9 @@ export class NavAIGuidePage {
 
   /**
    * Draws a watermark on the screens of the page.
-   * @returns {Promise<NavAIGuidePage>} - The page with watermarked screens.
+   * @returns {Promise<OSAgentPage>} - The page with watermarked screens.
    */
-  public async drawAfterWatermarkAsync(): Promise<NavAIGuidePage> {
+  public async drawAfterWatermarkAsync(): Promise<OSAgentPage> {
 
     // Watermark the image with a AFTER watermark
     await Promise.all(this.screens.map(async (screen) => {
@@ -292,7 +314,7 @@ export class NavAIGuidePage {
 }
 
 /**
- * Interface representing a NavAIGuide Page Screen.
+ * Interface representing a OSAgent Page Screen.
  * This includes the metadata and the screenshot data in base64 format.
  * @property {string} metadata - The metadata of the screen.
  * @property {string} base64Value - The screenshot data in base64 format.
@@ -326,7 +348,7 @@ export type BoundingBox = [number, number, number, number]; // [topLeftX, topLef
 /**
  * Type alias for the type of actions available.
  */
-export type ActionType = 'tap' | 'type' | 'scroll';
+export type ActionType = 'tap' | 'type' | 'scroll' | 'wait';
 
 /**
  * Interface representing a local tool.
@@ -370,7 +392,7 @@ export interface ToolsetPlan {
 }
 
 /**
- * Interface representing a NavAIGuide Action in Natural Language.
+ * Interface representing a OSAgent Action in Natural Language.
  * @property {boolean | null} previousActionSuccess - Indicates if the previous action was successful.
  * @property {string} previousActionSuccessExplanation - Explanation of the success or failure of the previous action.
  * @property {boolean} endGoalMet - Indicates if the end goal was met.
@@ -399,6 +421,9 @@ export interface NLAction {
   actionExpectedOutcome: string;
   actionTargetVisualDescription: string;
   actionTargetPositionContext: string;
+  requestClarifyingInfo: boolean;
+  requestClarifyingInfoQuestion: string;
+  relevantData: { [key: string]: string };
 }
 
 /**
@@ -409,4 +434,12 @@ export interface NLAction {
 export interface CodeSelectorByRelevance {
   selector: string;
   relevanceScore: number;
+}
+
+/**
+ * Interface representing a Clarifying Info Event Arguments.
+ */
+export interface ClarifyingInfoEventArgs {
+  message: string;
+  callback: (response: string) => void;
 }

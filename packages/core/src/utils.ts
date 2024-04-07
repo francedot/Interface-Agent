@@ -9,6 +9,55 @@ import Jimp from 'jimp';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
+ * Delays the execution of the current function by the specified number of milliseconds.
+ * @param ms 
+ * @returns 
+ */
+export function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Retries the specified operation with exponential backoff.
+ * @param operation The operation to retry.
+ * @param shouldRetry A function that returns true if the operation should be retried.
+ * @param maxRetries The maximum number of retries.
+ * @param retryDelay The initial delay between retries in milliseconds.
+ * @param maxDelay The maximum delay between retries in milliseconds.
+ * @returns 
+ */
+export async function retryWithExponentialBackoff<T>(
+  operation: () => Promise<T>,
+  shouldRetry: (error: any) => boolean, // Added a function to check if we should retry
+  maxRetries: number = 5,
+  retryDelay: number = 1000,
+  maxDelay: number = 32000
+): Promise<T> {
+  let retryCount = 0;
+
+  const executeOperation = async (): Promise<T> => {
+    try {
+      return await operation();
+    } catch (error) {
+      const canRetry = shouldRetry(error);
+
+      if (!canRetry || retryCount >= maxRetries) throw error; // Check if we should retry
+
+      console.log(`Operation failed, retrying in ${retryDelay}ms. Error: ${error}`);
+      await this.delay(retryDelay);
+
+      // Prepare for the next retry
+      retryCount++;
+      retryDelay = Math.min(retryDelay * 2, maxDelay); // Exponential backoff with a cap
+
+      return executeOperation(); // Retry operation
+    }
+  };
+
+  return executeOperation();
+}
+
+/**
  * Returns the value of the specified environment variable.
  *
  * @param name - The name of the environment variable.

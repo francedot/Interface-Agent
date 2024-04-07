@@ -1,19 +1,19 @@
-import { NLAction, NavAIGuide } from "@navaiguide/core";
+import { NLAction, OSAgentCore } from "@osagent/core";
 import { sPrompt_Generate_Code_Selectors_Windows } from "./prompts/generate-code-selector";
 import { performActionTap, performActionType } from "./utils";
-import { WindowsNavAIGuidePage } from "./types";
+import { WindowsOSAgentPage } from "./types";
 
 export class WindowsActionHandler {
-    private readonly navAIGuide: NavAIGuide;
+    private readonly osAgent: OSAgentCore;
     private readonly runCodeSelectorMaxRetries = 3;
 
-    constructor(navAIGuide: NavAIGuide) {
-        this.navAIGuide = navAIGuide;
+    constructor(osAgent: OSAgentCore) {
+        this.osAgent = osAgent;
     }
 
-    public async performAction(nextAction: NLAction, currentPage: WindowsNavAIGuidePage): Promise<void> {
+    public async performAction(nextAction: NLAction, currentPage: WindowsOSAgentPage): Promise<void> {
 
-        const codeSelectorsResult = await this.navAIGuide.generateCodeSelectorsWithRetry_Agent({
+        const codeSelectorsResult = await this.osAgent.generateCodeSelectorsWithRetry_Agent({
             prompt: sPrompt_Generate_Code_Selectors_Windows,
             inputPage: currentPage,
             nextAction: nextAction,

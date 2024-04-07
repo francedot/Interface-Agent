@@ -1,13 +1,15 @@
 import * as https from "https";
 import {
-  OpenAIError,
+  AIError,
   AzureAIInput,
   OpenAIEnum,
   OpenAIInput,
   OpenAIModels,
-  OpenAIResponse,
-} from "./types";
-import { getEnvironmentVariable } from "./utils";
+  AIResponse,
+  AIModelEnum,
+} from "../types";
+import { getEnvironmentVariable, retryWithExponentialBackoff } from "../utils";
+import { AIClient } from "./ai-client";
 
 /**
  * `OpenAIClient` is a class that provides methods for interacting with OpenAI and AzureAI API.
@@ -20,7 +22,7 @@ import { getEnvironmentVariable } from "./utils";
  * @property {string} azureOpenAIApiInstanceName - The instance name for Azure OpenAI API.
  * @property {boolean} isOpenAI - A flag indicating whether the client is for OpenAI or Azure OpenAI.
  */
-export class OpenAIClient {
+export class OpenAIClient implements AIClient {
   private openAIApiKey?: string;
   private azureAIApiGpt35TurboKey?: string;
   private azureAIApiGpt4TurboVisionKey?: string;
@@ -97,6 +99,7 @@ export class OpenAIClient {
     base64Images,
     systemPrompt,
     prompt,
+    model = OpenAIEnum.GPT4_TURBO_VISION,
     detailLevel = "auto",
     maxTokens,
     temperature,
@@ -104,13 +107,14 @@ export class OpenAIClient {
   }: {
     base64Images: string[];
     systemPrompt: string;
-    prompt?: string;
+    prompt: string;
+    model: AIModelEnum;
     detailLevel?: "low" | "high" | "auto";
     maxTokens?: number;
     temperature?: number;
     responseFormat?: "text" | "json_object";
-  }): Promise<OpenAIResponse> {
-    return this.retryWithExponentialBackoff(
+  }): Promise<AIResponse> {
+    return retryWithExponentialBackoff(
       async () => {
         const analyzeResponse = await this.analyzeImage_Internal({
           base64Images,
@@ -156,12 +160,12 @@ export class OpenAIClient {
   }: {
     base64Images: string[];
     systemPrompt: string;
-    prompt?: string;
+    prompt: string;
     detailLevel?: "low" | "high" | "auto";
     maxTokens?: number;
     temperature?: number;
     isVisionEnhancementEnabled?: boolean;
-  }): Promise<OpenAIResponse> {
+  }): Promise<AIResponse> {
     const messages = [
       {
         role: "system",
@@ -225,7 +229,7 @@ export class OpenAIClient {
           res.on("end", async () => {
             const response = JSON.parse(data);
             if (response.error) {
-              const err = new OpenAIError(response.error.message, response.error.code);
+              const err = new AIError(response.error.message, response.error.code);
               reject(err);
             }
             resolve(response);
@@ -261,13 +265,13 @@ export class OpenAIClient {
   }: {
     systemPrompt: string;
     prompt: string;
-    model: OpenAIEnum;
+    model: AIModelEnum;
     responseFormat?: "text" | "json_object";
     seed?: number;
     maxTokens?: number;
     temperature?: number;
-  }): Promise<OpenAIResponse> {
-    return this.retryWithExponentialBackoff(
+  }): Promise<AIResponse> {
+    return retryWithExponentialBackoff(
       async () => {
         const generateTextResponse = await this.generateText_Internal({
           systemPrompt,
@@ -300,12 +304,12 @@ export class OpenAIClient {
   }: {
     systemPrompt: string;
     prompt: string;
-    model: OpenAIEnum;
+    model: AIModelEnum;
     responseFormat?: "text" | "json_object";
     seed?: number;
     maxTokens?: number;
     temperature?: number;
-  }): Promise<OpenAIResponse> {
+  }): Promise<AIResponse> {
     const payload: any = {
       messages: [
         {
@@ -357,7 +361,7 @@ export class OpenAIClient {
           res.on("end", async () => {
             const response = JSON.parse(data);
             if (response.error) {
-              const err = new OpenAIError(response.error.message, response.error.code);
+              const err = new AIError(response.error.message, response.error.code);
               reject(err);
             }
             resolve(response);
@@ -371,40 +375,5 @@ export class OpenAIClient {
       req.write(JSON.stringify(payload));
       req.end();
     });
-  }
-
-  private delay(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  private async retryWithExponentialBackoff<T>(
-    operation: () => Promise<T>,
-    shouldRetry: (error: any) => boolean, // Added a function to check if we should retry
-    maxRetries: number = 5,
-    retryDelay: number = 1000,
-    maxDelay: number = 32000
-  ): Promise<T> {
-    let retryCount = 0;
-
-    const executeOperation = async (): Promise<T> => {
-      try {
-        return await operation();
-      } catch (error) {
-        const canRetry = shouldRetry(error);
-
-        if (!canRetry || retryCount >= maxRetries) throw error; // Check if we should retry
-
-        console.log(`Operation failed, retrying in ${retryDelay}ms. Error: ${error}`);
-        await this.delay(retryDelay);
-
-        // Prepare for the next retry
-        retryCount++;
-        retryDelay = Math.min(retryDelay * 2, maxDelay); // Exponential backoff with a cap
-
-        return executeOperation(); // Retry operation
-      }
-    };
-
-    return executeOperation();
   }
 }

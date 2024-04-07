@@ -1,21 +1,21 @@
-import { ActionType, BoundingBox, NLAction, NavAIGuide, NavAIGuidePage, calculateBoundingBoxCenter, transformBoundingBox } from "@navaiguide/core";
+import { ActionType, BoundingBox, NLAction, OSAgent, OSAgentPage, calculateBoundingBoxCenter, transformBoundingBox } from "@osagent/core";
 import { sendWdaCommand } from "./utils";
 import { sPrompt_Generate_Code_Selectors_iOS } from "./prompts/generate-code-selector";
 
 export class iOSActionHandler {
     private readonly wdioClient: WebdriverIO.Browser;
-    private readonly navAIGuide: NavAIGuide;
+    private readonly osAgent: OSAgent;
     private readonly runCodeSelectorMaxRetries = 3;
 
-    constructor(wdioClient: WebdriverIO.Browser, navAIGuide: NavAIGuide) {
-        this.navAIGuide = navAIGuide;
+    constructor(wdioClient: WebdriverIO.Browser, osAgent: OSAgent) {
+        this.osAgent = osAgent;
         this.wdioClient = wdioClient;
     }
 
-    public async performAction(nextAction: NLAction, currentPage: NavAIGuidePage): Promise<void> {
+    public async performAction(nextAction: NLAction, currentPage: OSAgentPage): Promise<void> {
         switch (nextAction.actionType) {
             case 'tap':
-                const codeSelectorsResult = await this.navAIGuide.generateCodeSelectorsWithRetry_Agent({
+                const codeSelectorsResult = await this.osAgent.generateCodeSelectorsWithRetry_Agent({
                     prompt: sPrompt_Generate_Code_Selectors_iOS,
                     inputPage: currentPage,
                     nextAction: nextAction,
@@ -165,7 +165,7 @@ export class iOSActionHandler {
         return `//XCUIElementTypeKey[@name='${key}']`;
     }
 
-    public async performActionTapWithCoordinates(page: NavAIGuidePage, boundingBox: BoundingBox): Promise<void> {
+    public async performActionTapWithCoordinates(page: OSAgentPage, boundingBox: BoundingBox): Promise<void> {
         const size = await this.wdioClient.getWindowSize();
         const transformedBoundingBox = transformBoundingBox(page.screens[0].screenSize, boundingBox, size);
         const { centerX, centerY } = calculateBoundingBoxCenter(transformedBoundingBox);

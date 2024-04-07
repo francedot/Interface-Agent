@@ -1,31 +1,36 @@
-import { OpenAIClient } from "./openai-client";
+import { AIClient } from "./clients/ai-client";
+import { AIClientFactoryImpl } from "./clients/ai-client-factory";
 import { sPrompt_Aggregate_Minimized_DOMs as sPrompt_Aggregate_Minimized_DOMs, sPrompt_Minimize_Chunk_DOM } from "./prompts/minimize-dom";
 import {
   AzureAIInput,
   OpenAIInput,
-  NavAIGuidePage,
+  OSAgentPage,
   OpenAIEnum,
   NLAction,
   CodeSelectorByRelevance,
   ToolsetPlan,
   Toolset,
+  ClaudeAIInput,
+  ClaudeAIEnum,
 } from "./types";
+import { getEnvironmentVariable } from "./utils";
 
 /**
- * NavAIGuide is a class providing an unenforced agentic framework for guiding users through a series of natural language tasks to achieve a specified end goal.
+ * OSAgent is a class providing an unenforced agentic framework for guiding users through a series of natural language tasks to achieve a specified end goal.
  */
-export class NavAIGuide {
-  private client: OpenAIClient;
+export class OSAgentCore {
+  private client: AIClient;
 
   /**
-   * Constructs a new NavAIGuide instance with optional configuration for OpenAI and AzureAI clients.
+   * Constructs a new OSAgent instance with optional configuration for OpenAI and AzureAI clients.
    * @param fields - An object containing OpenAI and AzureAI input configurations, as well as any additional configuration parameters.
    */
   constructor(
     fields?: Partial<OpenAIInput> &
-      Partial<AzureAIInput> & { configuration?: { organization?: string } }
+      Partial<AzureAIInput> &  Partial<ClaudeAIInput> & { configuration?: { organization?: string } }
   ) {
-    this.client = new OpenAIClient(fields);
+    const type = fields?.claudeAIApiKey != null || getEnvironmentVariable("CLAUDE_AI_API_KEY") ? "ClaudeAI" : "OpenAI";
+    this.client = new AIClientFactoryImpl().createClient(type, fields);
   }
 
   /**
@@ -51,7 +56,7 @@ export class NavAIGuide {
         userQuery: userQuery,
         toolset: tools.map((tool) => tool.title),
       }),
-      model: OpenAIEnum.GPT35_TURBO,
+      model: ClaudeAIEnum.CLAUDE_3_HAIKU,
       responseFormat: "json_object",
       temperature: 0.0,
       seed: 923, // Reproducible output
@@ -71,8 +76,8 @@ export class NavAIGuide {
    * An agent for predicting the next natural language action based on the current state of the system and the previous actions.
    * @param {Object} params - The parameters for the visual agent.
    * @param {string} params.prompt - The system prompt.
-   * @param {NavAIGuidePage} [params.previousPage] - The previous page (optional).
-   * @param {NavAIGuidePage} params.currentPage - The current page.
+   * @param {OSAgentPage} [params.previousPage] - The previous page (optional).
+   * @param {OSAgentPage} params.currentPage - The current page.
    * @param {string} params.endGoal - The end goal.
    * @param {boolean} params.keyboardVisible - Indicates if the keyboard is visible.
    * @param {boolean} params.scrollable - Indicates if the page is scrollable.
@@ -84,14 +89,18 @@ export class NavAIGuide {
     prompt,
     previousPage = null,
     currentPage,
+    ambiguityHandlingScore,
+    clarifyingInfoAnswer = null,
     toolPrompt,
     keyboardVisible = null,
     scrollable = null,
     previousActions,
   }: {
     prompt: string;
-    previousPage?: NavAIGuidePage;
-    currentPage: NavAIGuidePage;
+    previousPage?: OSAgentPage;
+    currentPage: OSAgentPage;
+    ambiguityHandlingScore: number;
+    clarifyingInfoAnswer?: string;
     toolPrompt: string;
     keyboardVisible?: boolean;
     scrollable?: boolean;
@@ -113,11 +122,14 @@ export class NavAIGuide {
       prompt: JSON.stringify({
         toolPrompt: toolPrompt,
         currentPage: currentPage.location,
+        ambiguityHandlingScore: ambiguityHandlingScore,
+        ...(clarifyingInfoAnswer != null && { clarifyingInfoAnswer: clarifyingInfoAnswer }),
         ...(keyboardVisible != null && { keyboardVisible: keyboardVisible }),
         ...(scrollable && { scrollable: scrollable }),
         ...(previousActions &&
           previousActions.length > 0 && { previousActions: previousActions }),
       }),
+      model: ClaudeAIEnum.CLAUDE_3_OPUS,
       detailLevel: "auto",
       responseFormat: "json_object",
       maxTokens: 1250,
@@ -139,8 +151,8 @@ export class NavAIGuide {
    * An agent for predicting the next natural language action based on the current state of the system and the previous actions.
    * @param {Object} params - The parameters for the visual agent.
    * @param {string} params.prompt - The system prompt.
-   * @param {NavAIGuidePage} [params.previousPage] - The previous page (optional).
-   * @param {NavAIGuidePage} params.currentPage - The current page.
+   * @param {OSAgentPage} [params.previousPage] - The previous page (optional).
+   * @param {OSAgentPage} params.currentPage - The current page.
    * @param {string} params.endGoal - The end goal.
    * @param {boolean} params.keyboardVisible - Indicates if the keyboard is visible.
    * @param {boolean} params.scrollable - Indicates if the page is scrollable.
@@ -148,57 +160,57 @@ export class NavAIGuide {
    * @returns {Promise<NLAction>} - The next natural language action.
    * @throws {Error} - Throws an error if the parsed content is not valid JSON.
    */
-  public async predictNextNLAction_Textual_Agent({
-    prompt,
-    previousPage = null,
-    currentPage,
-    endGoal,
-    previousActions,
-  }: {
-    prompt: string;
-    previousPage?: NavAIGuidePage;
-    currentPage: NavAIGuidePage;
-    endGoal: string;
-    previousActions?: NLAction[];
-  }): Promise<NLAction> {
+  // public async predictNextNLAction_Textual_Agent({
+  //   prompt,
+  //   previousPage = null,
+  //   currentPage,
+  //   endGoal,
+  //   previousActions,
+  // }: {
+  //   prompt: string;
+  //   previousPage?: OSAgentPage;
+  //   currentPage: OSAgentPage;
+  //   endGoal: string;
+  //   previousActions?: NLAction[];
+  // }): Promise<NLAction> {
 
-    // if (previousPage) {
-    //   previousPage.minimizedDomContent = await this.generateMinimizedDOM({ page: previousPage, endGoal: endGoal });
-    // }
-    // currentPage.minimizedDomContent = await this.generateMinimizedDOM({ page: currentPage, endGoal: endGoal });
+  //   // if (previousPage) {
+  //   //   previousPage.minimizedDomContent = await this.generateMinimizedDOM({ page: previousPage, endGoal: endGoal });
+  //   // }
+  //   // currentPage.minimizedDomContent = await this.generateMinimizedDOM({ page: currentPage, endGoal: endGoal });
 
-    const textualGroundingResult = await this.client.generateText({
-      systemPrompt: prompt,
-      prompt: JSON.stringify({
-        endGoal: endGoal,
-        currentPage: currentPage.location,
-        ...(previousPage?.reducedDomContent && { previousPageMinimizedDOM: previousPage.reducedDomContent }),
-        afterChangesDom: currentPage.reducedDomContent,
-        ...(previousActions &&
-          previousActions.length > 0 && { previousActions: previousActions }),
-      }),
-      model: OpenAIEnum.GPT35_TURBO,
-      seed: 923, // Reproducible output
-      responseFormat: "json_object",
-      temperature: 0,
-    });
+  //   const textualGroundingResult = await this.client.generateText({
+  //     systemPrompt: prompt,
+  //     prompt: JSON.stringify({
+  //       endGoal: endGoal,
+  //       currentPage: currentPage.location,
+  //       ...(previousPage?.reducedDomContent && { previousPageMinimizedDOM: previousPage.reducedDomContent }),
+  //       afterChangesDom: currentPage.reducedDomContent,
+  //       ...(previousActions &&
+  //         previousActions.length > 0 && { previousActions: previousActions }),
+  //     }),
+  //     model: OpenAIEnum.GPT35_TURBO,
+  //     seed: 923, // Reproducible output
+  //     responseFormat: "json_object",
+  //     temperature: 0,
+  //   });
 
-    let nlAction: NLAction;
-    try {
-      nlAction = JSON.parse(textualGroundingResult.choices[0].message.content);
-    } catch (e) {
-      console.error("Parsed content is not valid JSON");
-      throw e;
-    }
+  //   let nlAction: NLAction;
+  //   try {
+  //     nlAction = JSON.parse(textualGroundingResult.choices[0].message.content);
+  //   } catch (e) {
+  //     console.error("Parsed content is not valid JSON");
+  //     throw e;
+  //   }
 
-    return nlAction;
-  }
+  //   return nlAction;
+  // }
 
   /**
   * An agent for generating the code selectors for a given page and next action.
   * @param {Object} params - The parameters for the agent.
   * @param {string} params.prompt - The system prompt.
-  * @param {NavAIGuidePage} params.inputPage - The input page.
+  * @param {OSAgentPage} params.inputPage - The input page.
   * @param {NLAction} params.nextAction - The next action.
   * @param {number} params.maxRetries - The maximum number of retries.
   * @param {(code: string) => Promise<boolean>} params.codeEvalFunc - The function to evaluate the code.
@@ -212,7 +224,7 @@ export class NavAIGuide {
     codeEvalFunc: evalCode
   }: {
     prompt: string;
-    inputPage: NavAIGuidePage;
+    inputPage: OSAgentPage;
     nextAction: NLAction;
     maxRetries: number;
     codeEvalFunc: (code: string) => Promise<boolean>;
@@ -258,7 +270,7 @@ export class NavAIGuide {
    * Generates code selectors for the agent.
    * @param {Object} params - The parameters for the agent.
    * @param {string} params.prompt - The system prompt.
-   * @param {NavAIGuidePage} params.page - The page.
+   * @param {OSAgentPage} params.page - The page.
    * @param {NLAction} params.nextAction - The next action.
    * @param {string[]} [params.selectorFailures] - The selector failures (optional).
    * @returns {Promise<string[]>} - The sorted code selectors.
@@ -270,7 +282,7 @@ export class NavAIGuide {
     selectorFailures = null
   }: {
     prompt: string;
-    page: NavAIGuidePage;
+    page: OSAgentPage;
     nextAction: NLAction;
     selectorFailures?: string[];
   }): Promise<string[]> {
@@ -295,68 +307,67 @@ export class NavAIGuide {
     return sortedCodeSelectors;
   }
 
-  
-  private async generateMinimizedDOM({
-    page,
-    endGoal
-  }: {
-    page: NavAIGuidePage;
-    endGoal: string;
-  }): Promise<string> {
-    const minimizedDOMs = await Promise.all(
-      page.reducedDomChunks.map((chunk) => this.generateMinimizeDOMForChunk({ page, domChunk: chunk, endGoal })));
+  // private async generateMinimizedDOM({
+  //   page,
+  //   endGoal
+  // }: {
+  //   page: OSAgentPage;
+  //   endGoal: string;
+  // }): Promise<string> {
+  //   const minimizedDOMs = await Promise.all(
+  //     page.reducedDomChunks.map((chunk) => this.generateMinimizeDOMForChunk({ page, domChunk: chunk, endGoal })));
 
-    if (minimizedDOMs.length == 1) {
-      return minimizedDOMs[0];
-    }
+  //   if (minimizedDOMs.length == 1) {
+  //     return minimizedDOMs[0];
+  //   }
 
-    // Aggregate page summaries
-    return await this.generateAggregateMinimizedDOMs({ domChunks: minimizedDOMs, endGoal });
-  }
+  //   // Aggregate page summaries
+  //   return await this.generateAggregateMinimizedDOMs({ domChunks: minimizedDOMs, endGoal });
+  // }
 
-  private async generateMinimizeDOMForChunk({
-    page,
-    domChunk,
-    endGoal
-  }: {
-    page: NavAIGuidePage;
-    domChunk: string;
-    endGoal: string;
-  }): Promise<string> {
-    const generatePageSummaryForChunkResult = await this.client.generateText({
-      systemPrompt: sPrompt_Minimize_Chunk_DOM,
-      prompt: JSON.stringify({
-        endGoal: endGoal,
-        domChunk: domChunk,
-      }),
-      model: OpenAIEnum.GPT35_TURBO,
-      temperature: 0, // Minimize changes in page grounding
-      responseFormat: "text",
-    });
+  // private async generateMinimizeDOMForChunk({
+  //   page,
+  //   domChunk,
+  //   endGoal
+  // }: {
+  //   page: OSAgentPage;
+  //   domChunk: string;
+  //   endGoal: string;
+  // }): Promise<string> {
+  //   const generatePageSummaryForChunkResult = await this.client.generateText({
+  //     systemPrompt: sPrompt_Minimize_Chunk_DOM,
+  //     prompt: JSON.stringify({
+  //       endGoal: endGoal,
+  //       domChunk: domChunk,
+  //     }),
+  //     model: OpenAIEnum.GPT35_TURBO,
+  //     temperature: 0, // Minimize changes in page grounding
+  //     responseFormat: "text",
+  //   });
 
-    return generatePageSummaryForChunkResult.choices[0].message.content;
-  }
+  //   return generatePageSummaryForChunkResult.choices[0].message.content;
+  // }
 
-  private async generateAggregateMinimizedDOMs({
-    domChunks,
-    endGoal
-  }: {
-    domChunks: string[];
-    endGoal: string;
-  }): Promise<string> {
-    const generateAggregateMinimizedDomsResult = await this.client.generateText({
-      systemPrompt: sPrompt_Aggregate_Minimized_DOMs,
-      prompt: JSON.stringify({
-        endGoal: endGoal,
-        simplifiedDOMs: domChunks,
-      }),
-      model: OpenAIEnum.GPT35_TURBO,
-      temperature: 0, // Minimize changes in page grounding
-      responseFormat: "text",
-    });
+  // private async generateAggregateMinimizedDOMs({
+  //   domChunks,
+  //   endGoal
+  // }: {
+  //   domChunks: string[];
+  //   endGoal: string;
+  // }): Promise<string> {
+  //   const generateAggregateMinimizedDomsResult = await this.client.generateText({
+  //     systemPrompt: sPrompt_Aggregate_Minimized_DOMs,
+  //     prompt: JSON.stringify({
+  //       endGoal: endGoal,
+  //       simplifiedDOMs: domChunks,
+  //     }),
+  //     model: OpenAIEnum.GPT35_TURBO,
+  //     temperature: 0, // Minimize changes in page grounding
+  //     responseFormat: "text",
+  //   });
 
-    return generateAggregateMinimizedDomsResult.choices[0].message.content;
-  }
+  //   return generateAggregateMinimizedDomsResult.choices[0].message.content;
+  // }
 
   private async generateCodeSelectorsForChunk(
     prompt: string,
@@ -374,7 +385,7 @@ export class NavAIGuide {
         ...(selectorFailures &&
           selectorFailures.length > 0 && { selectorFailures: selectorFailures }),
       }),
-      model: OpenAIEnum.GPT35_TURBO,
+      model: ClaudeAIEnum.CLAUDE_3_HAIKU,
       responseFormat: "text",
       temperature: 0.6, // Increased temperature to encourage more variation in code generation if any 'selectorFailures' feedback
     });
@@ -382,7 +393,7 @@ export class NavAIGuide {
     const generateCodeSelectorJsonResult = await this.client.generateText({
       systemPrompt: "Return as valid JSON: ",
       prompt: generateCodeSelectorResult.choices[0].message.content,
-      model: OpenAIEnum.GPT35_TURBO,
+      model: ClaudeAIEnum.CLAUDE_3_HAIKU,
       responseFormat: "json_object",
       temperature: 0,
     });

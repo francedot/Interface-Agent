@@ -1,23 +1,27 @@
 import {
   AzureAIInput,
   NLAction,
-  NavAIGuideBaseAgent,
+  OSAgentBase,
   OpenAIInput,
   Tool,
   ToolsetPlan,
-} from "@navaiguide/core";
+  OpenAIClient,
+  OpenAIEnum
+} from "@osagent/core";
 import { sPrompt_Predict_Next_NL_Action_Visual } from "./prompts/predict-next-nl-action";
 import { WindowsActionHandler } from "./win-action-handler";
 import { sPrompt_Tools_Planner } from "./prompts/tools-planner";
-import { getAllInstalledTools, launchToolAsync } from "./utils";
-import { ToolsetMap, WindowsNavAIGuidePage } from "./types";
+import { getActiveWindowsAsync, getAllInstalledTools, launchToolAsync } from "./utils";
+import { ToolsetMap, Window, WindowsOSAgentPage } from "./types";
+import { sPrompt_Active_Windows } from "./prompts/active-windows";
 
 /**
- * The iOSAgent class orchestrates the process of performing and reasoning about actions on a mobile screen towards achieving a specified end goal.
+ * The WindowsAgent class orchestrates the process of performing and reasoning about actions on a mobile screen towards achieving a specified end goal.
  */
-export class WindowsAgent extends NavAIGuideBaseAgent {
+export class WindowsAgent extends OSAgentBase {
   private windowsActionHandler: WindowsActionHandler;
   private toolsetMap: ToolsetMap = new Map<string, Tool>();
+  private client: OpenAIClient;
 
   /**
    * Constructs a new WindowsAgent instance.
@@ -30,6 +34,7 @@ export class WindowsAgent extends NavAIGuideBaseAgent {
       }
   ) {
     super(fields);
+    this.client = new OpenAIClient(fields);
   }
 
   public async initAsync(): Promise<void> {
@@ -49,11 +54,15 @@ export class WindowsAgent extends NavAIGuideBaseAgent {
       throw new Error("No tools are installed or Agent has not been initialized.");
     }
    
-    const plan = await this.navAIGuide.toolsPlanner_Agent({
+    const plan = await this.osAgentCore.toolsPlanner_Agent({
       prompt: sPrompt_Tools_Planner,
       userQuery: query,
       tools: Array.from(this.toolsetMap.values()),
     });
+
+    if (plan.steps == null || plan.steps.length === 0) {
+      throw new Error("No steps were generated in the plan.");
+    }
 
     console.log(`Generated plan with ${plan.steps?.length ?? 0} steps: ${plan.description}`);
 
@@ -84,35 +93,45 @@ export class WindowsAgent extends NavAIGuideBaseAgent {
   }
 
   private async runToolStepAsync(toolStep: { tool: Tool; toolPrompt: string }): Promise<string[][]> {
-
+    // Start-ApplicationAndCaptureHandles
     console.log(`Starting at tool: ${toolStep.tool.title}`);
-    const winHandle = await launchToolAsync(toolStep.tool);
+    await launchToolAsync(toolStep.tool);
 
-    await new Promise(resolve => setTimeout(resolve, 6000));
+    const activeWindows = await getActiveWindowsAsync();
+    const classifiedWindows = await this.classifyActiveWindows_Agent({
+      prompt: sPrompt_Active_Windows,
+      tool: toolStep.tool,
+      activeWindows: activeWindows,
+    });
 
-    let previousNavAIGuidePage: WindowsNavAIGuidePage | null = null;
-    let currentNavAIGuidePage = await WindowsNavAIGuidePage.fromUIAutomationAsync({
-      winHandle: winHandle,
+    const mostRelevantWindow = classifiedWindows[0];
+    console.log(`Focusing on window: ${mostRelevantWindow.title}`);
+
+    let previousOSAgentPage: WindowsOSAgentPage | null = null;
+    let currentOSAgentPage = await WindowsOSAgentPage.fromUIAutomationAsync({
+      winHandle: mostRelevantWindow.handle.toString(),
       location: toolStep.tool.title,
       isVisualMode: true,
     });
 
-    // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
+    // saveBase64ImageToFile(currentOSAgentPage.screens[0].base64Value);
 
-    this.windowsActionHandler = new WindowsActionHandler(this.navAIGuide);
+    this.windowsActionHandler = new WindowsActionHandler(this.osAgentCore);
     const actions: NLAction[] = [];
+    let nextClarifyingInfoAnswer: string | null = null;
     while (true) {
       let nextAction: NLAction;
       try {
-        nextAction = await this.navAIGuide.predictNextNLAction_Visual_Agent({
+        nextAction = await this.osAgentCore.predictNextNLAction_Visual_Agent({
           prompt: sPrompt_Predict_Next_NL_Action_Visual,
-          previousPage: previousNavAIGuidePage,
-          currentPage: currentNavAIGuidePage,
+          previousPage: previousOSAgentPage,
+          currentPage: currentOSAgentPage,
           toolPrompt: toolStep.toolPrompt,
-          // scrollable: isViewScrollable(currentNavAIGuidePage.domContent),
-          // scrollable: true,
           previousActions: actions,
+          ambiguityHandlingScore: this.ambiguityHandlingScore,
+          clarifyingInfoAnswer: nextClarifyingInfoAnswer
         });
+        actions.push(nextAction);
       }
       catch (error) {
         console.error("Error running tool step:", error);
@@ -128,24 +147,71 @@ export class WindowsAgent extends NavAIGuideBaseAgent {
         return [];
       }
 
-      console.log(`Predicted next probable action: ${nextAction.actionDescription}`);
-      actions.push(nextAction);
+      console.log(`Predicted next probable action of type ${nextAction.actionType} against target ${nextAction.actionTarget}: ${nextAction.actionDescription}`);
+      
+      const relevantDataStrings = Object.keys(nextAction.relevantData).map(key => `${key}: ${nextAction.relevantData[key]}`);
+      const joinedRelevantData = relevantDataStrings.join(", ");
+      console.log(`Found relevant data strings: ${joinedRelevantData}`);
 
-      await this.windowsActionHandler.performAction(nextAction, currentNavAIGuidePage);
+      nextClarifyingInfoAnswer = null; // Reset clarifying info answer
+      if (nextAction.actionType === "wait" && nextAction.requestClarifyingInfo) {
+        try {
+          nextClarifyingInfoAnswer = await this.requestClarifyingInfo(nextAction.requestClarifyingInfoQuestion);
+          continue; // Predict the next action with the clarifying info added
+        } catch (error) {
+          console.error("Error handling clarifying info:", error);
+        }
+      }
 
-      // Delay for a few seconds to allow the action to take effect
-      await new Promise(resolve => setTimeout(resolve, 4000));
-      // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64ValueWithBeforeWatermark);
-      // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64ValueWithAfterWatermark);
+      await this.windowsActionHandler.performAction(nextAction, currentOSAgentPage);
 
-      const nextNavAIGuidePage = await WindowsNavAIGuidePage.fromUIAutomationAsync({
-        winHandle: winHandle,
+      // saveBase64ImageToFile(currentOSAgentPage.screens[0].base64ValueWithBeforeWatermark);
+      // saveBase64ImageToFile(currentOSAgentPage.screens[0].base64ValueWithAfterWatermark);
+
+      const nextOSAgentPage = await WindowsOSAgentPage.fromUIAutomationAsync({
+        winHandle: mostRelevantWindow.handle.toString(),
         location: toolStep.tool.title, // Set again as the id of the tool
         isVisualMode: true,
       });
 
-      previousNavAIGuidePage = currentNavAIGuidePage;
-      currentNavAIGuidePage = nextNavAIGuidePage;
+      previousOSAgentPage = currentOSAgentPage;
+      currentOSAgentPage = nextOSAgentPage;
     }
+  }
+
+  public async classifyActiveWindows_Agent({
+    prompt,
+    tool,
+    activeWindows
+  }: {
+    prompt: string;
+    tool: Tool;
+    activeWindows?: Window[];
+  }): Promise<Window[]> {
+    const classifyActiveWindowsResult = await this.client.generateText({
+      systemPrompt: prompt,
+      prompt: JSON.stringify({
+        appTitle: tool.title,
+        activeWindows,
+      }),
+      model: OpenAIEnum.GPT35_TURBO,
+      seed: 923, // Reproducible output
+      responseFormat: "json_object",
+      temperature: 0,
+    });
+
+    let windows: Window[];
+    try {
+      const jsonResult = JSON.parse(classifyActiveWindowsResult.choices[0].message.content);
+      windows = jsonResult.windows;
+    } catch (e) {
+      console.error("Parsed content is not valid JSON");
+      throw e;
+    }
+
+    // Sort windows by relevance score
+    windows.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    return windows;
   }
 }

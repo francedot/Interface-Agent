@@ -1,14 +1,20 @@
-import { NavAIGuidePage, PageScreen, Tool, reduceXmlDomWithChunks } from "@navaiguide/core";
+import { OSAgentPage, PageScreen, Tool, reduceXmlDomWithChunks } from "@osagent/core";
 import { getWindowUITree, takeToolScreenshotAsync } from "./utils";
 
 export type ToolsetMap = Map<string, Tool>;
 
+export interface Window {
+  handle: number;
+  title: string;
+  relevanceScore: number;
+}
+
 /**
- * Class representing a NavAIGuide page as input to NavAIGuide.
+ * Class representing a OSAgent page as input to OSAgent.
  * This class encapsulates the details of a webpage including its URL, screenshots, and DOM content.
- * It provides a static method to create a NavAIGuidePage instance from a Playwright Page object.
+ * It provides a static method to create a OSAgentPage instance from a Playwright Page object.
  */
-export class WindowsNavAIGuidePage extends NavAIGuidePage {
+export class WindowsOSAgentPage extends OSAgentPage {
 
     winHandle: string;
 
@@ -26,13 +32,13 @@ export class WindowsNavAIGuidePage extends NavAIGuidePage {
     }
   
     /**
-     * Creates a NavAIGuidePage instance from a Win32 Window handle object.
+     * Creates a OSAgentPage instance from a Win32 Window handle object.
      * This method captures the DOM content and a full-page screenshot of the given window.
-     * The DOM content and screenshot are then used to create a NavAIGuidePage instance.
+     * The DOM content and screenshot are then used to create a OSAgentPage instance.
      *
      * @param location - A location identifier for the page.
      * @param windowHandle - A Win32 Window handle object.
-     * @returns A Promise that resolves to a NavAIGuidePage instance.
+     * @returns A Promise that resolves to a OSAgentPage instance.
      */
     public static async fromUIAutomationAsync({
       location,
@@ -42,7 +48,7 @@ export class WindowsNavAIGuidePage extends NavAIGuidePage {
       location: string;
       winHandle: string;
       isVisualMode?: boolean;
-    }): Promise<WindowsNavAIGuidePage> {
+    }): Promise<WindowsOSAgentPage> {
 
       let pageScreens: PageScreen[] = [];
       if (isVisualMode) {
@@ -59,7 +65,7 @@ export class WindowsNavAIGuidePage extends NavAIGuidePage {
       const domContent = await getWindowUITree(winHandle);
       const { reducedDomContent, chunks } = reduceXmlDomWithChunks(domContent);
   
-      return new WindowsNavAIGuidePage({
+      return new WindowsOSAgentPage({
         winHandle: winHandle,
         location: location,
         screens: pageScreens,

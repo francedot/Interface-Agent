@@ -1,12 +1,12 @@
 import {
   AzureAIInput,
   NLAction,
-  NavAIGuideBaseAgent,
+  OSAgentBaseAgent,
   OpenAIInput,
-} from "@navaiguide/core";
+} from "@osagent/core";
 import { remote } from 'webdriverio';
 import { getInstalledApps, launchAppAsync, isViewKeyboardVisible, isViewScrollable } from "./utils";
-import { AppiumiOSNavAIGuidePage } from "./types";
+import { AppiumiOSOSAgentPage } from "./types";
 import { sPrompt_Predict_Next_NL_Action } from "./prompts/predict-next-nl-action";
 import { iOSActionHandler } from "./ios-action-handler";
 import { sPrompt_App_Planner } from "./prompts/planner-apps";
@@ -14,7 +14,7 @@ import { sPrompt_App_Planner } from "./prompts/planner-apps";
 /**
  * The iOSAgent class orchestrates the process of performing and reasoning about actions on a mobile screen towards achieving a specified end goal.
  */
-export class iOSAgent extends NavAIGuideBaseAgent {
+export class iOSAgent extends OSAgentBaseAgent {
   private wdioClient: WebdriverIO.Browser;
   private readonly appiumBaseUrl: string;
   private readonly appiumPort: number;
@@ -59,7 +59,7 @@ export class iOSAgent extends NavAIGuideBaseAgent {
     const apps = await getInstalledApps();
     console.log(`Found ${apps.length} installed apps: ${apps.map(app => app.title).join("\n")}`);
 
-    const appsPlan = await this.navAIGuide.startTaskPlanner_Agent({
+    const appsPlan = await this.osAgent.startTaskPlanner_Agent({
       prompt: sPrompt_App_Planner,
       userQuery: query,
       appsSource: apps.map(app => app.title),
@@ -82,24 +82,24 @@ export class iOSAgent extends NavAIGuideBaseAgent {
 
     await new Promise(resolve => setTimeout(resolve, 6000));
 
-    let previousNavAIGuidePage: AppiumiOSNavAIGuidePage | null = null;
-    let currentNavAIGuidePage = await AppiumiOSNavAIGuidePage.fromAppiumAsync({
+    let previousOSAgentPage: AppiumiOSOSAgentPage | null = null;
+    let currentOSAgentPage = await AppiumiOSOSAgentPage.fromAppiumAsync({
       wdioClient: this.wdioClient,
       location: appStep.appId
     });
 
-    // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
+    // saveBase64ImageToFile(currentOSAgentPage.screens[0].base64Value);
 
-    this.iOSActionHandler = new iOSActionHandler(this.wdioClient, this.navAIGuide);
+    this.iOSActionHandler = new iOSActionHandler(this.wdioClient, this.osAgent);
     const actions: NLAction[] = [];
     while (true) {
-      const nextAction = await this.navAIGuide.predictNextNLAction_Visual_Agent({
+      const nextAction = await this.osAgent.predictNextNLAction_Visual_Agent({
         prompt: sPrompt_Predict_Next_NL_Action,
-        previousPage: previousNavAIGuidePage,
-        currentPage: currentNavAIGuidePage,
+        previousPage: previousOSAgentPage,
+        currentPage: currentOSAgentPage,
         endGoal: appStep.appEndGoal,
-        keyboardVisible: isViewKeyboardVisible(currentNavAIGuidePage.domContent),
-        scrollable: isViewScrollable(currentNavAIGuidePage.domContent),
+        keyboardVisible: isViewKeyboardVisible(currentOSAgentPage.domContent),
+        scrollable: isViewScrollable(currentOSAgentPage.domContent),
         previousActions: actions,
       });
 
@@ -115,19 +115,19 @@ export class iOSAgent extends NavAIGuideBaseAgent {
       console.log(`Predicted next probable action: ${nextAction.actionDescription}`);
       actions.push(nextAction);
 
-      await this.iOSActionHandler.performAction(nextAction, currentNavAIGuidePage);
+      await this.iOSActionHandler.performAction(nextAction, currentOSAgentPage);
 
       // Delay for a few seconds to allow the action to take effect
       await new Promise(resolve => setTimeout(resolve, 4000));
-      // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
+      // saveBase64ImageToFile(currentOSAgentPage.screens[0].base64Value);
 
-      const nextNavAIGuidePage = await AppiumiOSNavAIGuidePage.fromAppiumAsync({
+      const nextOSAgentPage = await AppiumiOSOSAgentPage.fromAppiumAsync({
         wdioClient: this.wdioClient,
         location: appStep.appId // Set again as the id of the app
       });
 
-      previousNavAIGuidePage = currentNavAIGuidePage;
-      currentNavAIGuidePage = nextNavAIGuidePage;
+      previousOSAgentPage = currentOSAgentPage;
+      currentOSAgentPage = nextOSAgentPage;
     }
   }
 

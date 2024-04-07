@@ -8,6 +8,9 @@ using System;
 using System.Text;
 using System.Runtime.InteropServices;
 public class User32 {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
     [DllImport("user32.dll")]
     public static extern IntPtr SetForegroundWindow(IntPtr hWnd);
 
@@ -49,7 +52,7 @@ public class User32 {
 
     public const uint WM_SETTEXT = 0x000C;
 }
-"@ 
+"@
 
 function Get-StartMenuApps {
     $apps = @()
@@ -64,12 +67,20 @@ function Get-StartMenuApps {
             $shell = New-Object -ComObject WScript.Shell
             $lnk = $shell.CreateShortcut($shortcut.FullName)
             
-            # Check if the target path is not null or empty
-            if (![string]::IsNullOrWhiteSpace($lnk.TargetPath)) {
+            # Check if the target path is not null or empty and points to an executable
+            if (![string]::IsNullOrWhiteSpace($lnk.TargetPath) -and $lnk.TargetPath -like '*.exe') {
+                # Attempt to retrieve the LastAccessTime of the executable file
+                $exeFile = Get-Item $lnk.TargetPath -ErrorAction SilentlyContinue
+                $lastAccessTime = $null
+                if ($null -ne $exeFile) {
+                    $lastAccessTime = $exeFile.LastAccessTime
+                }
+
                 $apps += [PSCustomObject]@{
                     Title = $shortcut.BaseName
                     Path  = $lnk.TargetPath
                     Type  = "Desktop"
+                    LastAccessTime = $lastAccessTime
                 }
             }
         }
@@ -85,14 +96,12 @@ function Get-UWPApps {
 
         $preferredApp = $null
 
-        # Check if multiple applications are present and filter for appId starting with 'App'
         if ($applications -is [array]) {
             $preferredApp = $applications | Where-Object { $_.Id.StartsWith("App") } | Select-Object -First 1
             if (-not $preferredApp) {
-                $preferredApp = $applications[0] # Fallback to the first app if no 'App' prefix match
+                $preferredApp = $applications[0]
             }
-        }
-        else {
+        } else {
             $preferredApp = $applications
         }
 
@@ -103,11 +112,27 @@ function Get-UWPApps {
         $appId = $preferredApp.Id
         $launchPath = "shell:appsFolder\{0}!{1}" -f $package.PackageFamilyName, $appId
 
-        # Returning object with details for the selected application
+        # Attempt to get a readable title, default to PackageFamilyName if ms-resource is encountered
+        $displayName = (Get-AppxPackageManifest -Package $package.PackageFullName).Package.Properties.DisplayName
+        if ($displayName.StartsWith("ms-resource:")) {
+            $displayName = $package.PackageFamilyName
+        }
+
+        # Loop through all .exe files in the package folder
+        $exeFiles = Get-ChildItem -Path $package.InstallLocation -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue
+        $mostRecentExe = $exeFiles | Sort-Object LastAccessTime -Descending | Select-Object -First 1
+
+        # Use the most recent LastAccessTime among the .exe files
+        $lastAccessTime = $null
+        if ($null -ne $mostRecentExe) {
+            $lastAccessTime = $mostRecentExe.LastAccessTime
+        }
+
         [PSCustomObject]@{
             Path  = $launchPath
-            Title = (Get-AppxPackageManifest -Package $package.PackageFullName).Package.Properties.DisplayName
+            Title = $displayName
             Type  = "UWP"
+            LastAccessTime = $lastAccessTime
         }
     } | Where-Object { $_ -ne $null }
 
@@ -124,137 +149,61 @@ function Get-AllInstalledApps {
     # Concatenate both lists
     $allApps = $desktopApps + $uwpApps
 
+    $allApps = $allApps | Sort-Object LastAccessTime -Descending
+
     return $allApps | ConvertTo-Json -Depth 10
 }
 
-function Get-UWPAppWindowHandle {
-    param (
-        [string]$AppName,
-        [int]$TimeoutSeconds = 30
+function Get-ActiveWindowHandles {
+    param(
+        [switch]$Detailed
     )
 
-    $rootElement = [System.Windows.Automation.AutomationElement]::RootElement
-    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    $window = $null
-
-    # Split the app name into parts for more flexible matching
-    $appNameParts = $AppName -split ' '
-
-    do {
-        $condition = [System.Windows.Automation.Condition]::TrueCondition
-        $windows = $rootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
-
-        foreach ($win in $windows) {
-            $winName = $win.Current.Name
-            $matches = $appNameParts | Where-Object { $winName -match $_ -and $_ -ne '' } | Measure-Object
-
-            # If any part matches (case-insensitive), select the window
-            if ($matches.Count -gt 0 -and [User32]::IsWindow($win.Current.NativeWindowHandle)) {
-                $window = $win
-                break
-            }
-        }
-
-        if ($null -ne $window) {
-            break
-        }
-
-        Start-Sleep -Milliseconds 500
-    }
-    while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds)
-
-    $stopwatch.Stop()
-
-    if ($null -eq $window) {
-        Write-Warning "Window for UWP app '$AppName' not found within timeout."
-        return $null
-    }
-
-    # Ensure that a valid window handle was obtained
-    if ($window.Current.NativeWindowHandle -eq 0) {
-        Write-Warning "Failed to get a valid window handle for '$AppName'."
-        return $null
-    }
-
-    return $window.Current.NativeWindowHandle
-}
-
-function Get-ActiveWindowHandles {
     $rootElement = [System.Windows.Automation.AutomationElement]::RootElement
     $condition = [System.Windows.Automation.Condition]::TrueCondition
     $windows = $rootElement.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
 
-    $windowHandles = @()
+    $windowDetails = @()
 
     foreach ($window in $windows) {
         if ($window.Current.IsOffscreen -eq $false -and $window.Current.IsEnabled -eq $true) {
-            $windowHandles += $window.Current.NativeWindowHandle
+            $handle = $window.Current.NativeWindowHandle
+            $windowHandle = [IntPtr]$handle
+            $processId = $null
+            $null = [User32]::GetWindowThreadProcessId($windowHandle, [ref]$processId)
+            
+            $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+
+            if ($Detailed) {
+                $title = $window.Current.Name
+                $windowDetails += [PSCustomObject]@{
+                    Handle = $handle
+                    Title = $title
+                    # ExePath = $process.Path
+                }
+            } else {
+                $windowDetails += $handle
+            }
         }
     }
 
-    return $windowHandles
+    return $windowDetails
 }
 
-function Start-ApplicationAndCaptureHandle {
+function Start-Application {
     param (
         [string]$AppName,
         [string]$LaunchPath
     )
 
-    $AppNameParts = $AppName -split ' '
-    
-    $beforeHandles = Get-ActiveWindowHandles
-
-    # # Define a list to hold the window handles before launching the application
-    # $beforeHandles = New-Object System.Collections.Generic.List[IntPtr]
-
-    # # Callback method to process each window before launching the application
-    # $beforeCallback = {
-    #     param([IntPtr]$hWnd, [IntPtr]$lParam)
-
-    #     $beforeHandles.Add($hWnd)
-    #     # Continue enumeration
-    #     return $true
-    # }
-
-    # # Cast the script block to the delegate type
-    # $beforeEnumWindowsProc = $beforeCallback -as [User32+EnumWindowsProc]
-
-    # # Enumerate all top-level windows before launching the application
-    # [User32]::EnumWindows($beforeEnumWindowsProc, [IntPtr]::Zero) | Out-Null
-
     # Launch the application
     Start-Process -FilePath $LaunchPath
-    Start-Sleep -Seconds 10  # Adjust as needed
+    Start-Sleep -Seconds 5  # Adjust as needed
+}
 
-    # # Define a list to hold the window handles after launching the application
-    # $afterHandles = New-Object System.Collections.Generic.List[IntPtr]
-
-    # # Callback method to process each window after launching the application
-    # $afterCallback = {
-    #     param([IntPtr]$hWnd, [IntPtr]$lParam)
-
-    #     $afterHandles.Add($hWnd)
-    #     # Continue enumeration
-    #     return $true
-    # }
-
-    # # Cast the script block to the delegate type
-    # $afterEnumWindowsProc = $afterCallback -as [User32+EnumWindowsProc]
-
-    # # Enumerate all top-level windows after launching the application
-    # [User32]::EnumWindows($afterEnumWindowsProc, [IntPtr]::Zero) | Out-Null
-
-    $afterHandles = Get-ActiveWindowHandles
-
-    # Find the difference in window handles
-    $newHandles = $afterHandles | Where-Object { $beforeHandles -notcontains $_ }
-
-    if ($newHandles.Count -gt 1) {
-        Write-Warning "Multiple new windows found after launching the application."
-    }
-
-    $newHandles[0]
+function Get-ActiveWindows {
+    $afterWindows = Get-ActiveWindowHandles -Detailed
+    $afterWindows | ConvertTo-Json -Depth 10
 }
 
 function Get-ScreenshotOfAppWindowAsBase64 {
@@ -578,14 +527,17 @@ function Invoke-UIElementTap {
         [string]$XPath
     )
 
-    $WindowHandlePtr = [IntPtr]$WindowHandle
+    $result = Invoke-UIElementTapByCoordinates -WindowHandle $WindowHandle -XPath $XPath
+    return $result
+
     $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandlePtr -XPath $XPath
     # $element = Get-ClosestTappableElement -Element $element
 
     if ($null -eq $element) {
-        Write-Error "Unable to find a tappable element."
+        Write-Error "Unable to find an element matching the XPath."
         return $false
     }
+
 
     try {
         $expandCollapsePattern = $null
@@ -619,10 +571,9 @@ function Invoke-UIElementTap {
     # catch {
     # }
 
-    Write-Host "Element does not support Tap."
+    # Write-Host "Element does not support Tap."
     return $false
 }
-
 
 function Set-UIElementText {
     param (
@@ -640,29 +591,73 @@ function Set-UIElementText {
         [string]$Mode
     )
 
-    $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandle -XPath $XPath
-    if ($null -eq $element) {
-        Write-Error "Unable to find element."
-        return $false
-    }
+    # $element.SetFocus() | Out-Null
 
-    $element = Get-ClosestEditableElement -Element $element
-    if ($null -eq $element) {
-        Write-Error "Unable to find an editable element."
-        return $false
-    }
+    Invoke-UIElementTapByCoordinates -WindowHandle $WindowHandle -XPath $XPath | Out-Null
 
-    $element.SetFocus() | Out-Null
     if ($Mode -eq 'overwrite') {
         [System.Windows.Forms.SendKeys]::SendWait("^{HOME}") | Out-Null
         [System.Windows.Forms.SendKeys]::SendWait("^+{END}") | Out-Null
-        [System.Windows.Forms.SendKeys]::SendWait("{DEL}") | Out-Null
     } elseif ($Mode -eq 'append') {
         [System.Windows.Forms.SendKeys]::SendWait("{END}") | Out-Null
     }
-    [System.Windows.Forms.SendKeys]::SendWait($Text) | Out-Null
+
+    # Pre-process text to escape special characters that SendKeys interprets differently
+    $processedText = $Text -replace '([+^%~(){}])', '{$1}'
+    [System.Windows.Forms.SendKeys]::SendWait($processedText) | Out-Null
+
+    # Confirm the text input by sending an Enter key
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") | Out-Null
 
     return $true
+
+    # $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandle -XPath $XPath
+    # if ($null -eq $element) {
+    #     Write-Error "Unable to find element."
+    #     return $false
+    # }
+
+    # $element = Get-ClosestEditableElement -Element $element
+    # if ($null -eq $element) {
+    #     Write-Error "Unable to find an editable element."
+    #     return $false
+    # }
+
+    $valuePattern = $null
+
+    try {
+        $pattern = [System.Windows.Automation.ValuePatternIdentifiers]::Pattern
+        $valuePattern = $element.GetCurrentPattern($pattern)
+
+        if ($valuePattern -and !$valuePattern.Current.IsReadOnly) {
+            $valuePatternInterface = [System.Windows.Automation.ValuePattern]$valuePattern
+            if ($Mode -eq 'overwrite') {
+                $valuePatternInterface.SetValue($Text)
+            } elseif ($Mode -eq 'append') {
+                $currentValue = $valuePatternInterface.Current.Value
+                $newValue = $currentValue + $Text
+                $valuePatternInterface.SetValue($newValue)
+            }
+            return $true
+        } else {
+            throw "Fallback to SendKeys."
+        }
+    } catch {
+        # Fallback to SendKeys if ValuePattern is not supported or any error occurs
+        $element.SetFocus() | Out-Null
+
+        Invoke-UIElementTapByCoordinates -WindowHandle $WindowHandle -XPath $XPath | Out-Null
+
+        if ($Mode -eq 'overwrite') {
+            [System.Windows.Forms.SendKeys]::SendWait("^{HOME}") | Out-Null
+            [System.Windows.Forms.SendKeys]::SendWait("^+{END}") | Out-Null
+        } elseif ($Mode -eq 'append') {
+            [System.Windows.Forms.SendKeys]::SendWait("{END}") | Out-Null
+        }
+        return $true
+    }
+
+    return $false
 }
 
 function Invoke-UIElementTapByCoordinates {
@@ -682,8 +677,8 @@ function Invoke-UIElementTapByCoordinates {
         }
 
         $rect = $element.Current.BoundingRectangle
-        $centerX = [int]($rect.X)
-        $centerY = [int]($rect.Y)
+        $centerX = [int]($rect.X + $rect.Width / 2)
+        $centerY = [int]($rect.Y + $rect.Height / 2)
 
         [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($centerX, $centerY)
 
@@ -692,10 +687,10 @@ function Invoke-UIElementTapByCoordinates {
         $MOUSEEVENTF_LEFTUP = 0x04
         [User32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0) | Out-Null
         [User32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, 0) | Out-Null
-        Start-Sleep -Milliseconds 500 # Short pause between down and up for better reliability
+        Start-Sleep -Milliseconds 1000 # Short pause between down and up for better reliability
 
-        [User32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0) | Out-Null
-        [User32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, 0) | Out-Null
+        # [User32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0) | Out-Null
+        # [User32]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, 0) | Out-Null
         
         # Write-Host "Tap invoked at $centerX, $centerY."
         return $true

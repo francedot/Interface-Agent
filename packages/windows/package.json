@@ -1,10 +1,10 @@
 {
-  "name": "@navaiguide/windows",
+  "name": "@osagent/windows",
   "version": "0.0.5",
-  "description": "Windows integration for NavAIGuide, enabling powerful desktop automation and testing capabilities.",
+  "description": "Windows integration for OSAgent, enabling powerful desktop automation and testing capabilities.",
   "private": false,
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && shx cp ./src/WinAutomation.psm1 ./lib/WinAutomation.psm1",
     "test": "mocha",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "format": "prettier --write 'src/**/*.{js,ts,json}'",
@@ -13,13 +13,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/francedot/navaiguide-ts"
+    "url": "https://github.com/francedot/osagent-ts"
   },
   "publishConfig": {
     "access": "public"
   },
   "keywords": [
-    "navaiguide",
+    "osagent",
     "win",
     "llm",
     "windows",
@@ -31,7 +31,7 @@
   "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
   "license": "MIT",
   "dependencies": {
-    "@navaiguide/core": "^0.0.5"
+    "@osagent/core": "^0.0.5"
   },
   "files": [
     "lib/"

@@ -1,6 +1,7 @@
 import { WindowsAgent } from "../src/win-agent";
-import { ToolsetPlan } from "@navaiguide/core";
-import { tPrompt_Blank_Word, tPrompt_Word } from "./tasks-to-be-done/word";
+import { ToolsetPlan } from "@osagent/core";
+import { tPrompt_Blank_Word } from "./tasks-to-be-done/word";
+import { tPrompt_Movies_App } from "./tasks-to-be-done/movie-night";
 
 describe("Windows Device Interaction Tests", function() {
 
@@ -28,9 +29,51 @@ describe("Windows Device Interaction Tests", function() {
       }
     ]
   };
+
   it(wordPlan.description, async function() {
     const results = await windowsAgent.runFromPlanAsync({
       plan: wordPlan
+    });
+  });
+
+  const movieNightPlan: ToolsetPlan = {
+    description: "A plan for a movie night: download a movie and order some pizza",
+    steps: [
+      {
+        toolId: "Microsoft.ZuneVideo_8wekyb3d8bbwe",
+        toolPrompt: tPrompt_Movies_App
+      },
+      {
+        toolId: "Edge",
+        toolPrompt: "Use Edge, open deliveroo.ie and order some pizza."
+      }
+    ]
+  };
+
+  it(movieNightPlan.description, async function() {
+    const results = await windowsAgent.runFromPlanAsync({
+      plan: movieNightPlan
+    });
+  });
+
+  const msMovies1Query = "Open the Movies & TV app.";
+  it(msMovies1Query, async function() {
+    const results = await windowsAgent.runAsync({
+      query: msMovies1Query
+    });
+  });
+
+  const msMoviesQuery = "Open the Movies & TV app and look for a movie named 'The Matrix'.";
+  it(msMoviesQuery, async function() {
+    const results = await windowsAgent.runAsync({
+      query: msMoviesQuery
+    });
+  });
+
+  const msEdgeQuery = "Use Edge, open deliveroo.ie and order some pizza.";
+  it(msEdgeQuery, async function() {
+    const results = await windowsAgent.runAsync({
+      query: msEdgeQuery
     });
   });
 
@@ -41,13 +84,19 @@ describe("Windows Device Interaction Tests", function() {
     });
   });
 
+  const winStoreQuery = "Open the Windows Store app and look for an app named EdgeTile, and download it.";
+  it(winStoreQuery, async function() {
+    const results = await windowsAgent.runAsync({
+      query: winStoreQuery
+    });
+  });
+
   const wordQuery = "Help me create a document on 'AI in Healthcare' using Word.";
   it(wordQuery, async function() {
     const results = await windowsAgent.runAsync({
       query: wordQuery
     });
   });
-
 
   const pptPresentationQuery = "Help me create a presentation on 'AI in Healthcare' using PowerPoint.";
   it(pptPresentationQuery, async function() {

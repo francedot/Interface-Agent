@@ -1,7 +1,7 @@
-import { Tool } from '@navaiguide/core';
+import { Tool } from '@osagent/core';
 import { exec } from 'child_process';
 import path from 'path';
-import { ToolsetMap } from './types';
+import { ToolsetMap, Window } from './types';
 
 function extractContentFromMixedOutput(output) {
   // Define regex to match content between the specified start and end markers
@@ -12,7 +12,7 @@ function extractContentFromMixedOutput(output) {
     // The content has been successfully extracted
     return match[1].trim(); // Trim to remove leading/trailing whitespace
   } else {
-    console.error("Content not found in the output.");
+    // console.error("Content not found in the output.");
     return null;
   }
 }
@@ -37,7 +37,7 @@ function runPowerShellModuleFunction(functionName: string, namedArgs: { [key: st
     const command = `powershell -NonInteractive -EncodedCommand ${base64Command} 2>&1`;
 
     // Execute the command using exec, capturing stdout and stderr in a unified manner
-    exec(command, { maxBuffer: 1024 * 1024 * 5 }, (error, stdout, stderr) => {
+    exec(command, { maxBuffer: 2048 * 1024 * 5 }, (error, stdout, stderr) => {
       if (error) {
         reject(`Error: ${error.message}`);
       } else if (stderr && !stdout) {
@@ -79,28 +79,38 @@ export async function getAllInstalledTools(): Promise<ToolsetMap> {
 }
 
 /**
- * Activates an app on the device.
+ * Activates a tool on the device.
  *
- * @param app - The app to activate.
- * @returns {Promise<number>} A promise that resolves to the window app handle.
+ * @param tool - The tool to activate.
  */
-export async function launchToolAsync(tool: Tool): Promise<string> {
+export async function launchToolAsync(tool: Tool): Promise<void> {
   try {
-    const winHandle = await runPowerShellModuleFunction('Start-ApplicationAndCaptureHandle', { 
+    await runPowerShellModuleFunction('Start-Application', { 
       AppName: tool.title,
-      LaunchPath: tool.path,
-      Type: tool.metadata[0],
+      LaunchPath: tool.path
     });
-
-    if (winHandle === null || winHandle === "") {
-      throw new Error(`No window handle returned for app: ${tool.title}`);
-    }
-
-    console.log(`Launched app: ${tool.title} with window handle: ${winHandle}`)
-
-    return winHandle;
   } catch (error) {
     console.error(`Error launching app: ${tool.title}`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get active windows on the device.
+ *
+ * @returns {Promise<Window[]>} A promise that resolves to a list of active window handles.
+ */
+export async function getActiveWindowsAsync(): Promise<Window[]> {
+  try {
+    const getActiveWindowsResult = await runPowerShellModuleFunction('Get-ActiveWindows');
+    const activeWindows: Window[] = JSON.parse(getActiveWindowsResult).map((obj: any) => ({
+      handle: obj.Handle,
+      title: obj.Title
+    }));
+
+    return activeWindows;
+  } catch (error) {
+    // console.error(`Error launching app: ${tool.title}`, error);
     throw error;
   }
 }
