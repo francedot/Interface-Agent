@@ -1,12 +1,15 @@
 import prompts from 'prompts';
 import { WindowsAgent } from '@osagent/windows';
-import { ToolsetPlan } from '@osagent/core';
-import { tPrompt_Movies_App } from '../tests/tasks-to-be-done/movie-night';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables from .env.local
+dotenv.config({
+  path: path.resolve(__dirname, '../', '.env.local'),
+});
 
 const main = async () => {
-  const osAgent = new WindowsAgent({
-    openAIApiKey: ""
-  });
+  const osAgent = new WindowsAgent();
   await osAgent.initAsync();
 
   osAgent.onClarifyingInfoRequested = async (clarifyingInfo) => {

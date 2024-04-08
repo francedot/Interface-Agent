@@ -4,7 +4,7 @@ import { decode } from "html-entities";
 import * as path from "path";
 import { CheerioAPI, Element } from "cheerio";
 import sizeOf from 'image-size';
-import { BoundingBox, ScreenSize } from "./types";
+import { AIModel, BoundingBox, ScreenSize } from "./types";
 import Jimp from 'jimp';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -44,7 +44,7 @@ export async function retryWithExponentialBackoff<T>(
       if (!canRetry || retryCount >= maxRetries) throw error; // Check if we should retry
 
       console.log(`Operation failed, retrying in ${retryDelay}ms. Error: ${error}`);
-      await this.delay(retryDelay);
+      await delay(retryDelay);
 
       // Prepare for the next retry
       retryCount++;
@@ -618,4 +618,9 @@ export async function saveBase64ImageToFile(base64Image: string) {
 
   // Save the image to the current folder
   fs.writeFileSync(fileName, buffer);
+}
+
+export function getEnumKey(myEnum: any, enumValue: string): string | null {
+  let keys = Object.keys(myEnum).filter(x => myEnum[x] == enumValue);
+  return keys.length > 0 ? keys[0] : null;
 }

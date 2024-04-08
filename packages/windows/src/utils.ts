@@ -62,7 +62,8 @@ export async function getAllInstalledTools(): Promise<ToolsetMap> {
         id: app.Title, 
         title: app.Title,
         path: app.Path,
-        metadata: [app.Type]
+        metadata: [app.Type],
+        lastAccessTime: new Date(app.LastAccessTimeStr),
       };
 
       if (newTool) {

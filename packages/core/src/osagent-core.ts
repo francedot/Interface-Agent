@@ -1,36 +1,29 @@
 import { AIClient } from "./clients/ai-client";
-import { AIClientFactoryImpl } from "./clients/ai-client-factory";
-import { sPrompt_Aggregate_Minimized_DOMs as sPrompt_Aggregate_Minimized_DOMs, sPrompt_Minimize_Chunk_DOM } from "./prompts/minimize-dom";
+import { OSAgentSettings } from "./osagent-settings";
 import {
-  AzureAIInput,
-  OpenAIInput,
   OSAgentPage,
-  OpenAIEnum,
   NLAction,
   CodeSelectorByRelevance,
   ToolsetPlan,
   Toolset,
-  ClaudeAIInput,
-  ClaudeAIEnum,
+  AIModel,
 } from "./types";
-import { getEnvironmentVariable } from "./utils";
 
 /**
  * OSAgent is a class providing an unenforced agentic framework for guiding users through a series of natural language tasks to achieve a specified end goal.
  */
 export class OSAgentCore {
-  private client: AIClient;
+
+  private aiClients: AIClient[];
+  private settings: OSAgentSettings;
 
   /**
    * Constructs a new OSAgent instance with optional configuration for OpenAI and AzureAI clients.
    * @param fields - An object containing OpenAI and AzureAI input configurations, as well as any additional configuration parameters.
    */
-  constructor(
-    fields?: Partial<OpenAIInput> &
-      Partial<AzureAIInput> &  Partial<ClaudeAIInput> & { configuration?: { organization?: string } }
-  ) {
-    const type = fields?.claudeAIApiKey != null || getEnvironmentVariable("CLAUDE_AI_API_KEY") ? "ClaudeAI" : "OpenAI";
-    this.client = new AIClientFactoryImpl().createClient(type, fields);
+  constructor(aiClients: AIClient[], settings?: OSAgentSettings) {
+    this.aiClients = aiClients;
+    this.settings = settings;
   }
 
   /**
@@ -44,19 +37,23 @@ export class OSAgentCore {
   public async toolsPlanner_Agent({
     prompt,
     userQuery,
-    tools
+    tools,
+    requestClarifyingInfoAnswer = null,
   }: {
     prompt: string;
     userQuery: string;
     tools: Toolset;
+    requestClarifyingInfoAnswer?: string;
   }): Promise<ToolsetPlan> {
-    const generatePlanResult = await this.client.generateText({
+    const aiClient = this.getClientForAIModel(this.settings.toolsPlannerModel);
+    const generatePlanResult = await aiClient.generateText({
       systemPrompt: prompt,
       prompt: JSON.stringify({
         userQuery: userQuery,
         toolset: tools.map((tool) => tool.title),
+        requestClarifyingInfoAnswer
       }),
-      model: ClaudeAIEnum.CLAUDE_3_HAIKU,
+      model: this.settings.toolsPlannerModel.values[0],
       responseFormat: "json_object",
       temperature: 0.0,
       seed: 923, // Reproducible output
@@ -106,6 +103,7 @@ export class OSAgentCore {
     scrollable?: boolean;
     previousActions?: NLAction[];
   }): Promise<NLAction> {
+    const aiClient = this.getClientForAIModel(this.settings.toolsPlannerModel);
 
     // Make sure the screenshots are watermarked
     await Promise.all([
@@ -113,7 +111,7 @@ export class OSAgentCore {
       currentPage.drawAfterWatermarkAsync()
     ]);
 
-    const visualGroundingResult = await this.client.analyzeImage({
+    const visualGroundingResult = await aiClient.analyzeImage({
       base64Images: [
         ...(previousPage ? [previousPage.screens.map((screen) => screen.base64ValueWithBeforeWatermark)[0]] : []), // Only if not null we provide the previous page
         currentPage.screens.map((screen) => screen.base64ValueWithAfterWatermark)[0]
@@ -129,7 +127,7 @@ export class OSAgentCore {
         ...(previousActions &&
           previousActions.length > 0 && { previousActions: previousActions }),
       }),
-      model: ClaudeAIEnum.CLAUDE_3_OPUS,
+      model: this.settings.predictNextActionVisualModel.values[0], // TODO: Handle Azure AI
       detailLevel: "auto",
       responseFormat: "json_object",
       maxTokens: 1250,
@@ -146,65 +144,6 @@ export class OSAgentCore {
 
     return nlAction;
   }
-
-  /**
-   * An agent for predicting the next natural language action based on the current state of the system and the previous actions.
-   * @param {Object} params - The parameters for the visual agent.
-   * @param {string} params.prompt - The system prompt.
-   * @param {OSAgentPage} [params.previousPage] - The previous page (optional).
-   * @param {OSAgentPage} params.currentPage - The current page.
-   * @param {string} params.endGoal - The end goal.
-   * @param {boolean} params.keyboardVisible - Indicates if the keyboard is visible.
-   * @param {boolean} params.scrollable - Indicates if the page is scrollable.
-   * @param {NLAction[]} [params.previousActions] - The previous actions (optional).
-   * @returns {Promise<NLAction>} - The next natural language action.
-   * @throws {Error} - Throws an error if the parsed content is not valid JSON.
-   */
-  // public async predictNextNLAction_Textual_Agent({
-  //   prompt,
-  //   previousPage = null,
-  //   currentPage,
-  //   endGoal,
-  //   previousActions,
-  // }: {
-  //   prompt: string;
-  //   previousPage?: OSAgentPage;
-  //   currentPage: OSAgentPage;
-  //   endGoal: string;
-  //   previousActions?: NLAction[];
-  // }): Promise<NLAction> {
-
-  //   // if (previousPage) {
-  //   //   previousPage.minimizedDomContent = await this.generateMinimizedDOM({ page: previousPage, endGoal: endGoal });
-  //   // }
-  //   // currentPage.minimizedDomContent = await this.generateMinimizedDOM({ page: currentPage, endGoal: endGoal });
-
-  //   const textualGroundingResult = await this.client.generateText({
-  //     systemPrompt: prompt,
-  //     prompt: JSON.stringify({
-  //       endGoal: endGoal,
-  //       currentPage: currentPage.location,
-  //       ...(previousPage?.reducedDomContent && { previousPageMinimizedDOM: previousPage.reducedDomContent }),
-  //       afterChangesDom: currentPage.reducedDomContent,
-  //       ...(previousActions &&
-  //         previousActions.length > 0 && { previousActions: previousActions }),
-  //     }),
-  //     model: OpenAIEnum.GPT35_TURBO,
-  //     seed: 923, // Reproducible output
-  //     responseFormat: "json_object",
-  //     temperature: 0,
-  //   });
-
-  //   let nlAction: NLAction;
-  //   try {
-  //     nlAction = JSON.parse(textualGroundingResult.choices[0].message.content);
-  //   } catch (e) {
-  //     console.error("Parsed content is not valid JSON");
-  //     throw e;
-  //   }
-
-  //   return nlAction;
-  // }
 
   /**
   * An agent for generating the code selectors for a given page and next action.
@@ -307,75 +246,14 @@ export class OSAgentCore {
     return sortedCodeSelectors;
   }
 
-  // private async generateMinimizedDOM({
-  //   page,
-  //   endGoal
-  // }: {
-  //   page: OSAgentPage;
-  //   endGoal: string;
-  // }): Promise<string> {
-  //   const minimizedDOMs = await Promise.all(
-  //     page.reducedDomChunks.map((chunk) => this.generateMinimizeDOMForChunk({ page, domChunk: chunk, endGoal })));
-
-  //   if (minimizedDOMs.length == 1) {
-  //     return minimizedDOMs[0];
-  //   }
-
-  //   // Aggregate page summaries
-  //   return await this.generateAggregateMinimizedDOMs({ domChunks: minimizedDOMs, endGoal });
-  // }
-
-  // private async generateMinimizeDOMForChunk({
-  //   page,
-  //   domChunk,
-  //   endGoal
-  // }: {
-  //   page: OSAgentPage;
-  //   domChunk: string;
-  //   endGoal: string;
-  // }): Promise<string> {
-  //   const generatePageSummaryForChunkResult = await this.client.generateText({
-  //     systemPrompt: sPrompt_Minimize_Chunk_DOM,
-  //     prompt: JSON.stringify({
-  //       endGoal: endGoal,
-  //       domChunk: domChunk,
-  //     }),
-  //     model: OpenAIEnum.GPT35_TURBO,
-  //     temperature: 0, // Minimize changes in page grounding
-  //     responseFormat: "text",
-  //   });
-
-  //   return generatePageSummaryForChunkResult.choices[0].message.content;
-  // }
-
-  // private async generateAggregateMinimizedDOMs({
-  //   domChunks,
-  //   endGoal
-  // }: {
-  //   domChunks: string[];
-  //   endGoal: string;
-  // }): Promise<string> {
-  //   const generateAggregateMinimizedDomsResult = await this.client.generateText({
-  //     systemPrompt: sPrompt_Aggregate_Minimized_DOMs,
-  //     prompt: JSON.stringify({
-  //       endGoal: endGoal,
-  //       simplifiedDOMs: domChunks,
-  //     }),
-  //     model: OpenAIEnum.GPT35_TURBO,
-  //     temperature: 0, // Minimize changes in page grounding
-  //     responseFormat: "text",
-  //   });
-
-  //   return generateAggregateMinimizedDomsResult.choices[0].message.content;
-  // }
-
   private async generateCodeSelectorsForChunk(
     prompt: string,
     chunk: string,
     nextAction: NLAction,
     selectorFailures?: string[]
   ): Promise<CodeSelectorByRelevance[]> {
-    const generateCodeSelectorResult = await this.client.generateText({
+    const aiClient = this.getClientForAIModel(this.settings.generateCodeSelectorModel);
+    const generateCodeSelectorResult = await aiClient.generateText({
       systemPrompt: prompt,
       prompt: JSON.stringify({
         currentPageDom: chunk,
@@ -385,23 +263,15 @@ export class OSAgentCore {
         ...(selectorFailures &&
           selectorFailures.length > 0 && { selectorFailures: selectorFailures }),
       }),
-      model: ClaudeAIEnum.CLAUDE_3_HAIKU,
-      responseFormat: "text",
-      temperature: 0.6, // Increased temperature to encourage more variation in code generation if any 'selectorFailures' feedback
-    });
-
-    const generateCodeSelectorJsonResult = await this.client.generateText({
-      systemPrompt: "Return as valid JSON: ",
-      prompt: generateCodeSelectorResult.choices[0].message.content,
-      model: ClaudeAIEnum.CLAUDE_3_HAIKU,
+      model: this.settings.generateCodeSelectorModel.values[0],
       responseFormat: "json_object",
-      temperature: 0,
+      temperature: 0.6, // Increased temperature to encourage more variation in code generation if any 'selectorFailures' feedback
     });
 
     let selectorsByRelevance: CodeSelectorByRelevance[];
     try {
       const codeSelectors = JSON.parse(
-        generateCodeSelectorJsonResult.choices[0].message.content
+        generateCodeSelectorResult.choices[0].message.content
       );
       selectorsByRelevance = codeSelectors.selectorsByRelevance
     } catch (e) {
@@ -409,5 +279,15 @@ export class OSAgentCore {
     }
 
     return selectorsByRelevance;
+  }
+
+  public getClientForAIModel(model: AIModel): AIClient {
+    if (model.modelType === "OpenAI") {
+      return this.aiClients[0];
+    } else if (model.modelType === "ClaudeAI") {
+      return this.aiClients[1];
+    } else {
+      throw new Error(`Model ${model} not found.`);
+    }
   }
 }

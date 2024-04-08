@@ -1,4 +1,4 @@
-import { insertTextIntoImage } from "./utils";
+import { getEnumKey, insertTextIntoImage } from "./utils";
 
 export type AIModelEnum = ClaudeAIEnum | OpenAIEnum;
 
@@ -6,9 +6,9 @@ export type AIModelEnum = ClaudeAIEnum | OpenAIEnum;
  * Enum representing different ClaudeAI models.
  */
 export enum ClaudeAIEnum {
-  CLAUDE_3_OPUS = "claude-3-opus-20240229",
-  CLAUDE_3_SONNET = "claude-3-sonnet-20240229",
-  CLAUDE_3_HAIKU = "claude-3-haiku-20240307",
+  CLAUDE_3_HAIKU = "claude-3-haiku",
+  CLAUDE_3_OPUS = "claude-3-opus",
+  CLAUDE_3_SONNET = "claude-3-sonnet",
 }
 
 /**
@@ -24,81 +24,91 @@ export enum OpenAIEnum {
 /**
  * Class representing an OpenAI model.
  */
-export class OpenAIModel {
+export class AIModel {
+
+  constructor({ key, modelType, values }: { key: string, modelType: "OpenAI" | "ClaudeAI", values: string[] }) {
+    this.key = key;
+    this.modelType = modelType;
+    this.values = values;
+  }
+  
   /**
-   * The key of the OpenAI model.
+   * The key of the AIModel model.
    */
   key: string;
-  /**
-   * The value of the Azure AI model.
-   */
-  azureAIValue?: string;
-  /**
-   * The value of the OpenAI model.
-   */
-  openAIValue?: string;
 
   /**
-   * Constructs a new instance of the OpenAIModel class.
-   * @param key - The key of the model.
-   * @param azureAIValue - The value of the Azure AI model.
-   * @param openAIValue - The value of the OpenAI model.
+   * The type of the AIModel model.
    */
-  constructor({
-    key,
-    azureAIValue,
-    openAIValue,
-  }: {
-    key: string;
-    azureAIValue: string;
-    openAIValue: string;
-  }) {
-    this.key = key;
-    this.azureAIValue = azureAIValue;
-    this.openAIValue = openAIValue;
-  }
+  modelType: "OpenAI" | "ClaudeAI";
+
+  /**
+ * The values of the AIModel model.
+ */
+  values: string[];
 }
 
 /**
- * Class representing a collection of OpenAI models.
+ * Class representing a collection of AI models.
  */
-export class OpenAIModels {
+export class AIModels {
   private constructor() { }
 
   /**
-   * A dictionary of OpenAI models.
+   * A dictionary of AI models.
    * The key is the model key, and the value is an instance of OpenAIModel.
    */
-  static models: { [key: string]: OpenAIModel } = {
-    [OpenAIEnum.GPT35_TURBO]: new OpenAIModel({
-      key: OpenAIEnum.GPT35_TURBO,
-      azureAIValue: "SET_BY_CALLER",
-      openAIValue: "gpt-3.5-turbo-1106",
+  static models: { [key: string]: AIModel } = {
+    // OpenAI Models
+    [getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO)]: new AIModel({
+      key: getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO),
+      modelType: "OpenAI",
+      values: ["SET_BY_CALLER", "gpt-3.5-turbo-1106"]
     }),
-    [OpenAIEnum.GPT35_TURBO_16K]: new OpenAIModel({
-      key: OpenAIEnum.GPT35_TURBO_16K,
-      azureAIValue: "SET_BY_CALLER",
-      openAIValue: "gpt-3.5-turbo-16k",
+    [getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO_16K)]: new AIModel({
+      key: getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO_16K),
+      modelType: "OpenAI",
+      values: ["SET_BY_CALLER", "gpt-3.5-turbo-16k"]
     }),
-    [OpenAIEnum.GPT4_TURBO]: new OpenAIModel({
-      key: OpenAIEnum.GPT4_TURBO_VISION,
-      azureAIValue: "SET_BY_CALLER",
-      openAIValue: "gpt-4-1106-preview",
+    [getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO)]: new AIModel({
+      key: getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO),
+      modelType: "OpenAI",
+      values: ["SET_BY_CALLER", "gpt-4-1106-preview"]
     }),
-    [OpenAIEnum.GPT4_TURBO_VISION]: new OpenAIModel({
-      key: OpenAIEnum.GPT4_TURBO_VISION,
-      azureAIValue: "SET_BY_CALLER",
-      openAIValue: "gpt-4-vision-preview",
+    [getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO_VISION)]: new AIModel({
+      key: getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO_VISION),
+      modelType: "OpenAI",
+      values: ["SET_BY_CALLER", "gpt-4-vision-preview"]
+    }),
+    // ClaudeAI Models
+    [getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_HAIKU)]: new AIModel({
+      key: getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_HAIKU),
+      modelType: "ClaudeAI",
+      values: ["claude-3-haiku-20240307"],
+    }),
+    [getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_SONNET)]: new AIModel({
+      key: getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_SONNET),
+      modelType: "ClaudeAI",
+      values: ["claude-3-sonnet-20240229"],
+    }),
+    [getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_OPUS)]: new AIModel({
+      key: getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_OPUS),
+      modelType: "ClaudeAI",
+      values: ["claude-3-opus-20240229"],
     }),
   };
 
   /**
-   * Retrieves the OpenAI model with the specified key.
+   * Retrieves the AI model with the specified key.
    * @param key - The key of the model to retrieve.
    * @returns The OpenAIModel instance corresponding to the specified key.
    */
-  static getModel(key: string): OpenAIModel {
-    return OpenAIModels.models[key];
+  static getModel(key: string): AIModel {
+    for (const key in AIModels.models) {
+      console.log(key);
+    }
+
+    return AIModels.models[key];
   }
 }
 
@@ -364,6 +374,7 @@ export interface Tool {
   description?: string;
   path?: string;
   metadata?: string[];
+  lastAccessTime?: Date;
 }
 
 /**
@@ -387,6 +398,8 @@ export type ToolSteps = ToolStep[];
  * @property {string} steps - A sequence of steps to be performed in the plan.
  */
 export interface ToolsetPlan {
+  requestClarifyingInfo?: boolean;
+  requestClarifyingInfoQuestion?: string;
   description: string;
   steps: ToolSteps;
 }

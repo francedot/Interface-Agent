@@ -4,11 +4,10 @@ import {
   AzureAIInput,
   OpenAIEnum,
   OpenAIInput,
-  OpenAIModels,
   AIResponse,
-  AIModelEnum,
+  AIModels,
 } from "../types";
-import { getEnvironmentVariable, retryWithExponentialBackoff } from "../utils";
+import { getEnumKey, getEnvironmentVariable, retryWithExponentialBackoff } from "../utils";
 import { AIClient } from "./ai-client";
 
 /**
@@ -76,11 +75,11 @@ export class OpenAIClient implements AIClient {
       fields?.azureAIApiGpt4TurboVisionDeploymentName ??
       getEnvironmentVariable("AZURE_AI_API_GPT4TURBOVISION_DEPLOYMENT_NAME");
 
-    OpenAIModels.getModel(OpenAIEnum.GPT35_TURBO).azureAIValue =
+    AIModels.getModel(getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO)).values[0] =
       azureOpenAIApiGpt35TurboDeploymentName;
-    OpenAIModels.getModel(OpenAIEnum.GPT35_TURBO_16K).azureAIValue =
+    AIModels.getModel(getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO_16K)).values[0] =
       azureOpenAIApiGpt35Turbo16KDeploymentName;
-    OpenAIModels.getModel(OpenAIEnum.GPT4_TURBO_VISION).azureAIValue =
+    AIModels.getModel(getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO_VISION)).values[0] =
       azureOpenAIApiGpt4TurboVisionDeploymentName;
   }
 
@@ -108,7 +107,7 @@ export class OpenAIClient implements AIClient {
     base64Images: string[];
     systemPrompt: string;
     prompt: string;
-    model: AIModelEnum;
+    model: string;
     detailLevel?: "low" | "high" | "auto";
     maxTokens?: number;
     temperature?: number;
@@ -191,7 +190,7 @@ export class OpenAIClient implements AIClient {
       ...(maxTokens && { max_tokens: maxTokens }),
       ...(temperature && { temperature }),
       ...(this.isOpenAI && {
-        model: OpenAIModels.models[OpenAIEnum.GPT4_TURBO_VISION].openAIValue,
+        model: AIModels.models[OpenAIEnum.GPT4_TURBO_VISION][1],
       }),
       ...(!this.isOpenAI &&
         isVisionEnhancementEnabled && {
@@ -208,7 +207,7 @@ export class OpenAIClient implements AIClient {
         : `https://${
             this.azureAIApiGpt4TurboVisionInstanceName
           }.openai.azure.com/openai/deployments/${
-            OpenAIModels.models[OpenAIEnum.GPT4_TURBO_VISION].azureAIValue
+            AIModels.models[OpenAIEnum.GPT4_TURBO_VISION][0]
           }/chat/completions?api-version=2023-12-01-preview`;
       const req = https.request(
         url,
@@ -265,7 +264,7 @@ export class OpenAIClient implements AIClient {
   }: {
     systemPrompt: string;
     prompt: string;
-    model: AIModelEnum;
+    model: string;
     responseFormat?: "text" | "json_object";
     seed?: number;
     maxTokens?: number;
@@ -304,7 +303,7 @@ export class OpenAIClient implements AIClient {
   }: {
     systemPrompt: string;
     prompt: string;
-    model: AIModelEnum;
+    model: string;
     responseFormat?: "text" | "json_object";
     seed?: number;
     maxTokens?: number;
@@ -335,13 +334,13 @@ export class OpenAIClient implements AIClient {
       ...(model === OpenAIEnum.GPT35_TURBO
         ? { response_format: { type: responseFormat } }
         : {}),
-      ...(this.isOpenAI && { model: OpenAIModels.models[model].openAIValue }),
+      ...(this.isOpenAI && { model: AIModels.models[model][1] }),
     };
 
     return new Promise((resolve, reject) => {
       const url = this.isOpenAI
         ? `https://api.openai.com/v1/chat/completions`
-        : `https://${this.azureAIApiGpt35TurboInstanceName}.openai.azure.com/openai/deployments/${OpenAIModels.models[model].azureAIValue}/chat/completions?api-version=2023-12-01-preview`;
+        : `https://${this.azureAIApiGpt35TurboInstanceName}.openai.azure.com/openai/deployments/${AIModels.models[model][0]}/chat/completions?api-version=2023-12-01-preview`;
       const req = https.request(
         url,
         {

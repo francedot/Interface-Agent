@@ -43,7 +43,7 @@ The system outputs a JSON object containing:
 4. In case where the previous action was not successful, provide a revised action based on the visual feedback from the after screenshot, or ask for additional information based on the reason for the failure.
 
 # Rules:
-- Recommend 'tap' actions on input fields before 'type' actions. A 'type' action should be recommended only after a 'tap' action on the input field has been successfully completed.
+- Prioritize suggesting 'tap' actions on input fields before 'type' actions. A 'type' action should only be suggested once a 'tap' action on the same input field has been successfully executed, provided that the preceding 'tap' action did not introduce new paths and elements that require predicting another type of action.
 - 'actionInput' is only applicable for 'type' actions and should be omitted for other types of action. Also, it should only contain the text to be input.
 - 'previousActionSuccess' should be null if there are no previous actions.
 - Avoid recommending actions that may lead to ads or other irrelevant content, such as sponsored links.

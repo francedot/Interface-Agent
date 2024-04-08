@@ -1,16 +1,20 @@
+import { AIClient } from "./clients/ai-client";
+import { AIClientFactoryImpl } from "./clients/ai-client-factory";
 import { OSAgentCore as OSAgentCore } from "./osagent-core";
+import { OSAgentSettings } from "./osagent-settings";
 import {
   AzureAIInput,
   ClarifyingInfoEventArgs,
+  ClaudeAIInput,
   OpenAIInput,
   ToolsetPlan,
 } from "./types";
-import { getEnvironmentVariable } from "./utils";
 
 /**
  * The OSAgentBaseAgent class is an abstract class that provides a base for creating multi-modal agents that use the OSAgent framework to achieve a specified end goal using a series of actions.
  */
 export abstract class OSAgentBase {
+  protected aiClients: AIClient[];
   protected osAgentCore: OSAgentCore;
   protected ambiguityHandlingScore: number;
 
@@ -20,15 +24,22 @@ export abstract class OSAgentBase {
    */
   constructor(
     fields?: Partial<OpenAIInput> &
-      Partial<AzureAIInput> & {
-        configuration?: { organization?: string };
-      }
+      Partial<AzureAIInput> &
+      Partial<ClaudeAIInput> & {
+        configuration?: { organization?: string }
+      },
+      settings?: OSAgentSettings
   ) {
-    this.osAgentCore = new OSAgentCore(fields);
-    this.ambiguityHandlingScore =
-      parseFloat(getEnvironmentVariable("AMBIGUITY_HANDLING_SCORE") ?? "0");
+    this.aiClients = [
+      new AIClientFactoryImpl().createClient("OpenAI", fields),
+      new AIClientFactoryImpl().createClient("ClaudeAI", fields),
+    ];
+    this.osAgentCore = new OSAgentCore(this.aiClients, settings);
   }
 
+  /**
+   * Initializes the agent.
+   */
   abstract initAsync({ }): Promise<void>;
 
   /**
@@ -69,5 +80,4 @@ export abstract class OSAgentBase {
       }
     });
   }
-  
 }

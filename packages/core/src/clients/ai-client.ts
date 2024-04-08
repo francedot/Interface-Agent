@@ -1,4 +1,4 @@
-import { AIModelEnum, AIResponse, OpenAIEnum } from "../types";
+import { AIResponse, OpenAIEnum } from "../types";
 
 export interface AIClient {
 
@@ -12,7 +12,7 @@ export interface AIClient {
       }: {
         systemPrompt: string;
         prompt: string;
-        model: AIModelEnum;
+        model: string;
         responseFormat?: "text" | "json_object";
         seed?: number;
         maxTokens?: number;
@@ -32,7 +32,7 @@ export interface AIClient {
         base64Images: string[];
         systemPrompt: string;
         prompt: string;
-        model: AIModelEnum;
+        model: string;
         detailLevel?: "low" | "high" | "auto";
         maxTokens?: number;
         temperature?: number;

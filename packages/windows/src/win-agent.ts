@@ -5,15 +5,16 @@ import {
   OpenAIInput,
   Tool,
   ToolsetPlan,
-  OpenAIClient,
-  OpenAIEnum
+  ClaudeAIEnum,
+  ClaudeAIInput
 } from "@osagent/core";
 import { sPrompt_Predict_Next_NL_Action_Visual } from "./prompts/predict-next-nl-action";
 import { WindowsActionHandler } from "./win-action-handler";
 import { sPrompt_Tools_Planner } from "./prompts/tools-planner";
 import { getActiveWindowsAsync, getAllInstalledTools, launchToolAsync } from "./utils";
 import { ToolsetMap, Window, WindowsOSAgentPage } from "./types";
-import { sPrompt_Active_Windows } from "./prompts/active-windows";
+import { sPrompt_Active_Windows } from "./prompts/window-detect";
+import { WindowsOSAgentSettings } from "./win-settings";
 
 /**
  * The WindowsAgent class orchestrates the process of performing and reasoning about actions on a mobile screen towards achieving a specified end goal.
@@ -21,20 +22,17 @@ import { sPrompt_Active_Windows } from "./prompts/active-windows";
 export class WindowsAgent extends OSAgentBase {
   private windowsActionHandler: WindowsActionHandler;
   private toolsetMap: ToolsetMap = new Map<string, Tool>();
-  private client: OpenAIClient;
 
   /**
    * Constructs a new WindowsAgent instance.
    * @param fields - Configuration fields including OpenAI and AzureAI inputs and Appium configuration.
    */
-  constructor(
-    fields?: Partial<OpenAIInput> &
-      Partial<AzureAIInput> & {
-        configuration?: { organization?: string };
-      }
-  ) {
-    super(fields);
-    this.client = new OpenAIClient(fields);
+  constructor(fields?: Partial<OpenAIInput> & Partial<AzureAIInput> & Partial<ClaudeAIInput> & {
+    configuration?: {
+        organization?: string;
+    }
+  }) {
+    super(fields, WindowsOSAgentSettings.getInstance());
   }
 
   public async initAsync(): Promise<void> {
@@ -53,15 +51,30 @@ export class WindowsAgent extends OSAgentBase {
     if (this.toolsetMap.size === 0) {
       throw new Error("No tools are installed or Agent has not been initialized.");
     }
-   
-    const plan = await this.osAgentCore.toolsPlanner_Agent({
-      prompt: sPrompt_Tools_Planner,
-      userQuery: query,
-      tools: Array.from(this.toolsetMap.values()),
-    });
 
-    if (plan.steps == null || plan.steps.length === 0) {
-      throw new Error("No steps were generated in the plan.");
+    let requestClarifyingInfo = true;
+    let requestClarifyingInfoAnswer: string | null = null;
+    let plan: ToolsetPlan;
+    while (requestClarifyingInfo) {
+      plan = await this.osAgentCore.toolsPlanner_Agent({
+        prompt: sPrompt_Tools_Planner,
+        userQuery: query,
+        tools: Array.from(this.toolsetMap.values()),
+      });
+
+      requestClarifyingInfo = plan.requestClarifyingInfo;
+      if (plan.requestClarifyingInfo) {
+        try {
+          requestClarifyingInfoAnswer = await this.requestClarifyingInfo(plan.requestClarifyingInfoQuestion);
+        } catch (error) {
+          console.error("Error handling clarifying info:", error);
+        }
+      }
+
+      if (plan.steps == null || plan.steps.length === 0) {
+        // throw new Error("No steps were generated in the plan.");
+        continue;
+      }
     }
 
     console.log(`Generated plan with ${plan.steps?.length ?? 0} steps: ${plan.description}`);
@@ -98,7 +111,7 @@ export class WindowsAgent extends OSAgentBase {
     await launchToolAsync(toolStep.tool);
 
     const activeWindows = await getActiveWindowsAsync();
-    const classifiedWindows = await this.classifyActiveWindows_Agent({
+    const classifiedWindows = await this.windowDetect_Agent({
       prompt: sPrompt_Active_Windows,
       tool: toolStep.tool,
       activeWindows: activeWindows,
@@ -131,6 +144,7 @@ export class WindowsAgent extends OSAgentBase {
           ambiguityHandlingScore: this.ambiguityHandlingScore,
           clarifyingInfoAnswer: nextClarifyingInfoAnswer
         });
+        console.log(JSON.stringify(nextAction, null, 6));
         actions.push(nextAction);
       }
       catch (error) {
@@ -149,10 +163,12 @@ export class WindowsAgent extends OSAgentBase {
 
       console.log(`Predicted next probable action of type ${nextAction.actionType} against target ${nextAction.actionTarget}: ${nextAction.actionDescription}`);
       
-      const relevantDataStrings = Object.keys(nextAction.relevantData).map(key => `${key}: ${nextAction.relevantData[key]}`);
-      const joinedRelevantData = relevantDataStrings.join(", ");
-      console.log(`Found relevant data strings: ${joinedRelevantData}`);
-
+      if (nextAction.relevantData) {
+        const relevantDataStrings = Object.keys(nextAction.relevantData).map(key => `${key}: ${nextAction.relevantData[key]}`);
+        const joinedRelevantData = relevantDataStrings.join(", ");
+        console.log(`Found relevant data strings: ${joinedRelevantData}`);
+      }
+     
       nextClarifyingInfoAnswer = null; // Reset clarifying info answer
       if (nextAction.actionType === "wait" && nextAction.requestClarifyingInfo) {
         try {
@@ -179,7 +195,7 @@ export class WindowsAgent extends OSAgentBase {
     }
   }
 
-  public async classifyActiveWindows_Agent({
+  public async windowDetect_Agent({
     prompt,
     tool,
     activeWindows
@@ -188,13 +204,15 @@ export class WindowsAgent extends OSAgentBase {
     tool: Tool;
     activeWindows?: Window[];
   }): Promise<Window[]> {
-    const classifyActiveWindowsResult = await this.client.generateText({
+    const model = WindowsOSAgentSettings.getInstance().windowDetectModel;
+    const aiClient = this.osAgentCore.getClientForAIModel(model);
+    const classifyActiveWindowsResult = await aiClient.generateText({
       systemPrompt: prompt,
       prompt: JSON.stringify({
         appTitle: tool.title,
         activeWindows,
       }),
-      model: OpenAIEnum.GPT35_TURBO,
+      model: model.values[0], // TODO: Handle Azure AI
       seed: 923, // Reproducible output
       responseFormat: "json_object",
       temperature: 0,

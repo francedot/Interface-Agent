@@ -72,8 +72,10 @@ function Get-StartMenuApps {
                 # Attempt to retrieve the LastAccessTime of the executable file
                 $exeFile = Get-Item $lnk.TargetPath -ErrorAction SilentlyContinue
                 $lastAccessTime = $null
+                $lastAccessTimeStr = $null
                 if ($null -ne $exeFile) {
                     $lastAccessTime = $exeFile.LastAccessTime
+                    $lastAccessTimeStr = $lastAccessTime.ToString("o")
                 }
 
                 $apps += [PSCustomObject]@{
@@ -81,6 +83,7 @@ function Get-StartMenuApps {
                     Path  = $lnk.TargetPath
                     Type  = "Desktop"
                     LastAccessTime = $lastAccessTime
+                    LastAccessTimeStr = $lastAccessTimeStr
                 }
             }
         }
@@ -124,8 +127,10 @@ function Get-UWPApps {
 
         # Use the most recent LastAccessTime among the .exe files
         $lastAccessTime = $null
+        $lastAccessTimeStr = $null
         if ($null -ne $mostRecentExe) {
             $lastAccessTime = $mostRecentExe.LastAccessTime
+            $lastAccessTimeStr = $lastAccessTime.ToString("o")
         }
 
         [PSCustomObject]@{
@@ -133,6 +138,7 @@ function Get-UWPApps {
             Title = $displayName
             Type  = "UWP"
             LastAccessTime = $lastAccessTime
+            LastAccessTimeStr = $lastAccessTimeStr
         }
     } | Where-Object { $_ -ne $null }
 

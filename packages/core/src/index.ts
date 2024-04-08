@@ -6,3 +6,4 @@ export * from "./clients/openai-client";
 export * from "./clients/claudeai-client";
 export * from "./osagent-core";
 export * from "./osagent-base";
+export * from "./osagent-settings";

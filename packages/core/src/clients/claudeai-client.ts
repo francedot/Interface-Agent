@@ -1,7 +1,7 @@
 import * as https from "https";
 import { getEnvironmentVariable, retryWithExponentialBackoff } from "../utils";
 import { AIClient } from "./ai-client";
-import { AIModelEnum, AIResponse, ClaudeAIInput } from "../types";
+import { AIError, AIResponse, ClaudeAIInput } from "../types";
 
 export class ClaudeAIClient implements AIClient {
   private apiKey: string;
@@ -22,7 +22,7 @@ export class ClaudeAIClient implements AIClient {
   }: {
     systemPrompt: string;
     prompt: string;
-    model: AIModelEnum;
+    model: string;
     responseFormat?: "text" | "json_object";
     maxTokens?: number;
     temperature?: number;
@@ -41,7 +41,8 @@ export class ClaudeAIClient implements AIClient {
       },
       (error) => {
         return error && error.message && error.message.includes('Rate limit reached') ||
-          (error.code && error.code === '429');
+          (error.code && error.code === '429') || 
+          (error.code && error.code === 'INVALID_JSON_RESPONSE');
       },
       10, // Max retries
       1000, // Initial delay in ms
@@ -59,13 +60,13 @@ export class ClaudeAIClient implements AIClient {
   }: {
     systemPrompt: string;
     prompt: string;
-    model: AIModelEnum;
+    model: string;
     responseFormat?: "text" | "json_object";
     maxTokens?: number;
     temperature?: number;
   }): Promise<any> {
     const userMessages = [
-      ...(prompt ? [ { type: "text", text: responseFormat === "json_object" ? `Return as valid JSON. Input: ${prompt}` : prompt, }] : []),
+      ...(prompt ? [ { type: "text", text: responseFormat === "json_object" ? `Return only JSON output: ${prompt}` : prompt, }] : []),
     ];
   
     const payload: any = {
@@ -104,6 +105,22 @@ export class ClaudeAIClient implements AIClient {
               const err = new Error(response.error.message);
               reject(err);
             }
+            if (!response.content) {
+              console.log("No Response content");
+              reject(new AIError("No content in response", "NO_CONTENT_IN_RESPONSE"));
+            }
+            if (responseFormat === "json_object") {
+              try {
+                const jsonContent = JSON.parse(response.content[0].text);
+                if (jsonContent === undefined) {
+                  const err = new AIError("Invalid JSON response", "INVALID_JSON_RESPONSE");
+                  reject(err);
+                }
+              } catch (e) {
+                const err = new AIError("Invalid JSON response", "INVALID_JSON_RESPONSE");
+                reject(err);
+              }
+            }
             const adaptedResponse = this.convertResponse(response);
             resolve(adaptedResponse);
           });
@@ -129,7 +146,7 @@ export class ClaudeAIClient implements AIClient {
     base64Images: string[];
     systemPrompt: string;
     prompt: string;
-    model: AIModelEnum;
+    model: string;
     responseFormat?: "text" | "json_object";
     maxTokens?: number;
     temperature?: number;
@@ -149,7 +166,8 @@ export class ClaudeAIClient implements AIClient {
       },
       (error) => {
         return error && error.message && error.message.includes('Rate limit reached') ||
-          (error.code && error.code === '429');
+          (error.code && error.code === '429') || 
+          (error.code && error.code === 'INVALID_JSON_RESPONSE');
       },
       5, // Max retries
       1000, // Initial delay in ms
@@ -169,13 +187,13 @@ export class ClaudeAIClient implements AIClient {
     base64Images: string[];
     systemPrompt?: string;
     prompt?: string;
-    model: AIModelEnum;
+    model: string;
     responseFormat?: "text" | "json_object";
     maxTokens?: number;
     temperature?: number;
   }): Promise<any> {
     const userMessages = [
-      ...(prompt ? [ { type: "text", text: responseFormat === "json_object" ? `Return as valid JSON. Input: ${prompt}` : prompt, }] : []),
+      ...(prompt ? [ { type: "text", text: responseFormat === "json_object" ? `Return only JSON output: ${prompt}` : prompt, }] : []),
       ...base64Images.map((image) => ({
         type: "image",
         source: {
@@ -221,6 +239,22 @@ export class ClaudeAIClient implements AIClient {
             if (response.error) {
               const err = new Error(response.error.message);
               reject(err);
+            }
+            if (!response.content) {
+              console.log("No Response content");
+              reject(new Error("No content in response"));
+            }
+            if (responseFormat === "json_object") {
+              try {
+                const jsonContent = JSON.parse(response.content[0].text);
+                if (jsonContent === undefined) {
+                  const err = new AIError("Invalid JSON response", "INVALID_JSON_RESPONSE");
+                  reject(err);
+                }
+              } catch (e) {
+                const err = new AIError("Invalid JSON response", "INVALID_JSON_RESPONSE");
+                reject(err);
+              }
             }
             const adaptedResponse = this.convertResponse(response);
             resolve(adaptedResponse);
