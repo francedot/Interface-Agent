@@ -15,8 +15,8 @@ import {
  */
 export abstract class OSAgentBase {
   protected aiClients: AIClient[];
+  protected settings: OSAgentSettings;
   protected osAgentCore: OSAgentCore;
-  protected ambiguityHandlingScore: number;
 
   /**
    * Constructs a new OSAgentBaseAgent instance.
@@ -34,6 +34,7 @@ export abstract class OSAgentBase {
       new AIClientFactoryImpl().createClient("OpenAI", fields),
       new AIClientFactoryImpl().createClient("ClaudeAI", fields),
     ];
+    this.settings = settings;
     this.osAgentCore = new OSAgentCore(this.aiClients, settings);
   }
 

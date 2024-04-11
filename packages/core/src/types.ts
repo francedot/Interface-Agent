@@ -1,4 +1,4 @@
-import { getEnumKey, insertTextIntoImage } from "./utils";
+import {  insertTextIntoImage } from "./utils";
 
 export type AIModelEnum = ClaudeAIEnum | OpenAIEnum;
 
@@ -6,19 +6,19 @@ export type AIModelEnum = ClaudeAIEnum | OpenAIEnum;
  * Enum representing different ClaudeAI models.
  */
 export enum ClaudeAIEnum {
-  CLAUDE_3_HAIKU = "claude-3-haiku",
-  CLAUDE_3_OPUS = "claude-3-opus",
-  CLAUDE_3_SONNET = "claude-3-sonnet",
+  CLAUDE_3_HAIKU = "CLAUDE_3_HAIKU",
+  CLAUDE_3_OPUS = "CLAUDE_3_OPUS",
+  CLAUDE_3_SONNET = "CLAUDE_3_SONNET",
 }
 
 /**
  * Enum representing different OpenAI models.
  */
 export enum OpenAIEnum {
-  GPT35_TURBO = "gpt-3.5-turbo",
-  GPT35_TURBO_16K = "gpt-3.5-turbo-16k",
-  GPT4_TURBO = "gpt-4-1106-preview",
-  GPT4_TURBO_VISION = "gpt-4-vision-preview",
+  GPT35_TURBO = "GPT35_TURBO",
+  GPT35_TURBO_16K = "GPT35_TURBO_16K",
+  GPT4_TURBO = "GPT4_TURBO",
+  GPT4_TURBO_VISION = "GPT4_TURBO_VISION",
 }
 
 /**
@@ -60,39 +60,41 @@ export class AIModels {
    */
   static models: { [key: string]: AIModel } = {
     // OpenAI Models
-    [getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO)]: new AIModel({
-      key: getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO),
+    [OpenAIEnum.GPT35_TURBO]: new AIModel({
+      key: OpenAIEnum.GPT35_TURBO,
       modelType: "OpenAI",
       values: ["SET_BY_CALLER", "gpt-3.5-turbo-1106"]
     }),
-    [getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO_16K)]: new AIModel({
-      key: getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO_16K),
+    [OpenAIEnum.GPT35_TURBO_16K]: new AIModel({
+      key: OpenAIEnum.GPT35_TURBO_16K,
       modelType: "OpenAI",
       values: ["SET_BY_CALLER", "gpt-3.5-turbo-16k"]
     }),
-    [getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO)]: new AIModel({
-      key: getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO),
+    [OpenAIEnum.GPT4_TURBO]: new AIModel({
+      key: OpenAIEnum.GPT4_TURBO,
       modelType: "OpenAI",
       values: ["SET_BY_CALLER", "gpt-4-1106-preview"]
     }),
-    [getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO_VISION)]: new AIModel({
-      key: getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO_VISION),
+    [OpenAIEnum.GPT4_TURBO_VISION]: new AIModel({
+      key: OpenAIEnum.GPT4_TURBO_VISION,
       modelType: "OpenAI",
       values: ["SET_BY_CALLER", "gpt-4-vision-preview"]
+      // values: ["SET_BY_CALLER", "gpt-4-turbo-2024-04-09"]
+      // 
     }),
     // ClaudeAI Models
-    [getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_HAIKU)]: new AIModel({
-      key: getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_HAIKU),
+    [ClaudeAIEnum.CLAUDE_3_HAIKU]: new AIModel({
+      key: ClaudeAIEnum.CLAUDE_3_HAIKU,
       modelType: "ClaudeAI",
       values: ["claude-3-haiku-20240307"],
     }),
-    [getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_SONNET)]: new AIModel({
-      key: getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_SONNET),
+    [ClaudeAIEnum.CLAUDE_3_SONNET]: new AIModel({
+      key: ClaudeAIEnum.CLAUDE_3_SONNET,
       modelType: "ClaudeAI",
       values: ["claude-3-sonnet-20240229"],
     }),
-    [getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_OPUS)]: new AIModel({
-      key: getEnumKey(ClaudeAIEnum, ClaudeAIEnum.CLAUDE_3_OPUS),
+    [ClaudeAIEnum.CLAUDE_3_OPUS]: new AIModel({
+      key: ClaudeAIEnum.CLAUDE_3_OPUS,
       modelType: "ClaudeAI",
       values: ["claude-3-opus-20240229"],
     }),
@@ -103,12 +105,17 @@ export class AIModels {
    * @param key - The key of the model to retrieve.
    * @returns The OpenAIModel instance corresponding to the specified key.
    */
-  static getModel(key: string): AIModel {
-    for (const key in AIModels.models) {
-      console.log(key);
-    }
+  static getModelFromEnumValue(aiModel: AIModelEnum): AIModel {
+    // for (const key in AIModels.models) {
+    //   console.log(key);
+    // }
 
-    return AIModels.models[key];
+    return AIModels.models[aiModel];
+  }
+
+  static getModel(aiModelName: string): AIModel {
+    // const enumValue = getAIModelEnumValueFromKey(aiModelName);
+    return AIModels.models[aiModelName];
   }
 }
 
@@ -358,7 +365,7 @@ export type BoundingBox = [number, number, number, number]; // [topLeftX, topLef
 /**
  * Type alias for the type of actions available.
  */
-export type ActionType = 'tap' | 'type' | 'scroll' | 'wait';
+export type ActionType = 'tap' | 'type' | 'scroll' | 'nop';
 
 /**
  * Interface representing a local tool.
@@ -375,6 +382,7 @@ export interface Tool {
   path?: string;
   metadata?: string[];
   lastAccessTime?: Date;
+  isWindowRef?: boolean;
 }
 
 /**
@@ -437,6 +445,7 @@ export interface NLAction {
   requestClarifyingInfo: boolean;
   requestClarifyingInfoQuestion: string;
   relevantData: { [key: string]: string };
+  revisedToolPrompt: string;
 }
 
 /**
@@ -455,4 +464,9 @@ export interface CodeSelectorByRelevance {
 export interface ClarifyingInfoEventArgs {
   message: string;
   callback: (response: string) => void;
+}
+
+export interface QuestionAnswer {
+  question: string;
+  answer: string;
 }

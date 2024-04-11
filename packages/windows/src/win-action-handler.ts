@@ -1,6 +1,6 @@
 import { NLAction, OSAgentCore } from "@osagent/core";
 import { sPrompt_Generate_Code_Selectors_Windows } from "./prompts/generate-code-selector";
-import { performActionTap, performActionType } from "./utils";
+import { performActionScroll, performActionTap, performActionType } from "./utils";
 import { WindowsOSAgentPage } from "./types";
 
 export class WindowsActionHandler {
@@ -27,7 +27,11 @@ export class WindowsActionHandler {
                         await performActionType(currentPage.winHandle, codeSelector, nextAction.actionInput, nextAction.actionInputEditMode);
                         break;
                     case 'scroll':
-                        throw new Error(`Action type ${nextAction.actionType} is not supported`);
+                        await performActionScroll(currentPage.winHandle, codeSelector, nextAction.actionScrollDirection);
+                        break;
+                    case 'nop':
+                    // Do nothing
+                    break;
                     default:
                         throw new Error(`Action type ${nextAction.actionType} is not supported`);
                 }

@@ -7,7 +7,7 @@ import {
   AIResponse,
   AIModels,
 } from "../types";
-import { getEnumKey, getEnvironmentVariable, retryWithExponentialBackoff } from "../utils";
+import { getEnvironmentVariable, retryWithExponentialBackoff } from "../utils";
 import { AIClient } from "./ai-client";
 
 /**
@@ -75,12 +75,157 @@ export class OpenAIClient implements AIClient {
       fields?.azureAIApiGpt4TurboVisionDeploymentName ??
       getEnvironmentVariable("AZURE_AI_API_GPT4TURBOVISION_DEPLOYMENT_NAME");
 
-    AIModels.getModel(getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO)).values[0] =
+    AIModels.getModel(OpenAIEnum.GPT35_TURBO).values[0] =
       azureOpenAIApiGpt35TurboDeploymentName;
-    AIModels.getModel(getEnumKey(OpenAIEnum, OpenAIEnum.GPT35_TURBO_16K)).values[0] =
+    AIModels.getModel(OpenAIEnum.GPT35_TURBO_16K).values[0] =
       azureOpenAIApiGpt35Turbo16KDeploymentName;
-    AIModels.getModel(getEnumKey(OpenAIEnum, OpenAIEnum.GPT4_TURBO_VISION)).values[0] =
+    AIModels.getModel(OpenAIEnum.GPT4_TURBO_VISION).values[0] =
       azureOpenAIApiGpt4TurboVisionDeploymentName;
+  }
+
+  /**
+   * Generates text based on the provided prompt.
+   * @param systemPrompt - The system prompt.
+   * @param prompt - The prompt.
+   * @param model - The model to use for text generation.
+   * @param responseFormat - The format of the response.
+   * @param maxTokens - The maximum number of tokens to generate.
+   * @param temperature - The temperature to use for text generation.
+   * @returns A promise that resolves to the generated text.
+   */
+  public async generateText({
+    systemPrompt,
+    prompt,
+    model,
+    responseFormat = "text",
+    seed,
+    maxTokens,
+    temperature,
+  }: {
+    systemPrompt: string;
+    prompt: string;
+    model: string;
+    responseFormat?: "text" | "json_object";
+    seed?: number;
+    maxTokens?: number;
+    temperature?: number;
+  }): Promise<AIResponse> {
+    return retryWithExponentialBackoff(
+      async () => {
+        const generateTextResponse = await this.generateText_Internal({
+          systemPrompt,
+          prompt,
+          model,
+          responseFormat: "text",
+          seed,
+          maxTokens,
+          temperature,
+        });
+
+        if (responseFormat === "text") {
+          return generateTextResponse;
+        }
+
+        const generateJsonTextResponse = await this.generateText_Internal({
+          systemPrompt: "You are an AI assistant that converts the given input into valid JSON format. The assitant returns the JSON only.\n\nInput:\n",
+          prompt: generateTextResponse.choices[0].message.content,
+          model: OpenAIEnum.GPT35_TURBO,
+          responseFormat: "json_object", // Only Set for GPT-3.5 Turbo
+          seed,
+          maxTokens,
+          temperature,
+        });
+
+        return generateJsonTextResponse;
+      },
+      (error) => {
+        return this.isOpenAI && error && error.message && error.message.includes('Rate limit reached') ||
+          (error.code && error.code === '429')
+      },
+      10, // Max retries
+      1000, // Initial delay in ms
+      32000 // Max delay in ms
+    );
+  }
+
+  private async generateText_Internal({
+    systemPrompt,
+    prompt,
+    model,
+    responseFormat,
+    seed,
+    maxTokens,
+    temperature,
+  }: {
+    systemPrompt: string;
+    prompt: string;
+    model: string;
+    responseFormat?: "text" | "json_object";
+    seed?: number;
+    maxTokens?: number;
+    temperature?: number;
+  }): Promise<AIResponse> {
+    const payload: any = {
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: prompt,
+            },
+          ],
+        },
+      ],
+      ...(maxTokens && { max_tokens: maxTokens }),
+      ...(temperature && { temperature }),
+      ...(model === OpenAIEnum.GPT35_TURBO
+        ? { response_format: { type: responseFormat } }
+        : {}),
+      ...(this.isOpenAI && { model: AIModels.getModel(model).values[1] }),
+    };
+
+    return new Promise((resolve, reject) => {
+      const url = this.isOpenAI
+        ? `https://api.openai.com/v1/chat/completions`
+        : `https://${this.azureAIApiGpt35TurboInstanceName}.openai.azure.com/openai/deployments/${AIModels.getModel(model).values[0]}/chat/completions?api-version=2023-12-01-preview`;
+      const req = https.request(
+        url,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(this.isOpenAI
+              ? { Authorization: `Bearer ${this.openAIApiKey}` }
+              : { "api-key": this.azureAIApiGpt35TurboKey }),
+          },
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (chunk) => {
+            data += chunk;
+          });
+          res.on("end", async () => {
+            const response = JSON.parse(data);
+            if (response.error) {
+              const err = new AIError(response.error.message, response.error.code);
+              reject(err);
+            }
+            resolve(response);
+          });
+        }
+      );
+
+      req.on("error", (e) => {
+        reject(e);
+      });
+      req.write(JSON.stringify(payload));
+      req.end();
+    });
   }
 
   /**
@@ -100,43 +245,49 @@ export class OpenAIClient implements AIClient {
     prompt,
     model = OpenAIEnum.GPT4_TURBO_VISION,
     detailLevel = "auto",
+    responseFormat,
     maxTokens,
     temperature,
-    responseFormat,
+    isVisionEnhancementEnabled = false,
   }: {
     base64Images: string[];
     systemPrompt: string;
     prompt: string;
     model: string;
     detailLevel?: "low" | "high" | "auto";
+    responseFormat?: "text" | "json_object";
     maxTokens?: number;
     temperature?: number;
-    responseFormat?: "text" | "json_object";
+    isVisionEnhancementEnabled?: boolean;
   }): Promise<AIResponse> {
     return retryWithExponentialBackoff(
       async () => {
-        const analyzeResponse = await this.analyzeImage_Internal({
+        const analyzeImageResponse = await this.analyzeImage_Internal({
           base64Images,
           systemPrompt,
           prompt,
+          model,
           detailLevel,
+          responseFormat: "text",
+          maxTokens,
+          temperature,
+          isVisionEnhancementEnabled
+        });
+      
+        if (responseFormat === "text") {
+          return analyzeImageResponse;
+        }
+
+        const generateJsonTextResponse = await this.generateText_Internal({
+          systemPrompt: "You are an AI assistant that converts the given input into valid JSON format. The assitant returns the JSON only.\n\nInput:\n",
+          prompt: analyzeImageResponse.choices[0].message.content,
+          model: OpenAIEnum.GPT35_TURBO,
+          responseFormat: "json_object", // Only Set for GPT-3.5 Turbo
           maxTokens,
           temperature,
         });
-    
-        const analyzeContent = analyzeResponse.choices[0].message.content;
-        if (responseFormat === "text") {
-          return analyzeResponse;
-        }
-    
-        return await this.generateText({
-          systemPrompt: "You are a helpful assistant returning valid JSON only.",
-          prompt: `Return the following as valid JSON: ${analyzeContent}`,
-          model: OpenAIEnum.GPT35_TURBO,
-          responseFormat: "json_object",
-          maxTokens: 4096,
-          temperature: 0,
-        });
+
+        return generateJsonTextResponse;
       },
       (error) => {
         return this.isOpenAI && error && error.message && error.message.includes('Rate limit reached') ||
@@ -152,7 +303,9 @@ export class OpenAIClient implements AIClient {
     base64Images,
     systemPrompt,
     prompt,
+    model,
     detailLevel = "auto",
+    responseFormat,
     maxTokens,
     temperature,
     isVisionEnhancementEnabled = false,
@@ -160,7 +313,9 @@ export class OpenAIClient implements AIClient {
     base64Images: string[];
     systemPrompt: string;
     prompt: string;
+    model: string;
     detailLevel?: "low" | "high" | "auto";
+    responseFormat?: "text" | "json_object";
     maxTokens?: number;
     temperature?: number;
     isVisionEnhancementEnabled?: boolean;
@@ -190,7 +345,7 @@ export class OpenAIClient implements AIClient {
       ...(maxTokens && { max_tokens: maxTokens }),
       ...(temperature && { temperature }),
       ...(this.isOpenAI && {
-        model: AIModels.models[OpenAIEnum.GPT4_TURBO_VISION][1],
+        model: AIModels.getModel(model).values[1],
       }),
       ...(!this.isOpenAI &&
         isVisionEnhancementEnabled && {
@@ -207,7 +362,7 @@ export class OpenAIClient implements AIClient {
         : `https://${
             this.azureAIApiGpt4TurboVisionInstanceName
           }.openai.azure.com/openai/deployments/${
-            AIModels.models[OpenAIEnum.GPT4_TURBO_VISION][0]
+            AIModels.getModel(model).values[0]
           }/chat/completions?api-version=2023-12-01-preview`;
       const req = https.request(
         url,
@@ -218,138 +373,6 @@ export class OpenAIClient implements AIClient {
             ...(this.isOpenAI
               ? { Authorization: `Bearer ${this.openAIApiKey}` }
               : { "api-key": this.azureAIApiGpt4TurboVisionKey }),
-          },
-        },
-        (res) => {
-          let data = "";
-          res.on("data", (chunk) => {
-            data += chunk;
-          });
-          res.on("end", async () => {
-            const response = JSON.parse(data);
-            if (response.error) {
-              const err = new AIError(response.error.message, response.error.code);
-              reject(err);
-            }
-            resolve(response);
-          });
-        }
-      );
-
-      req.on("error", (e) => {
-        reject(e);
-      });
-      req.write(JSON.stringify(payload));
-      req.end();
-    });
-  }
-
-  /**
-   * Generates text based on the provided prompt.
-   * @param systemPrompt - The system prompt.
-   * @param prompt - The prompt.
-   * @param model - The model to use for text generation.
-   * @param responseFormat - The format of the response.
-   * @param maxTokens - The maximum number of tokens to generate.
-   * @param temperature - The temperature to use for text generation.
-   * @returns A promise that resolves to the generated text.
-   */
-  public async generateText({
-    systemPrompt,
-    prompt,
-    model,
-    responseFormat = "text",
-    maxTokens,
-    temperature,
-  }: {
-    systemPrompt: string;
-    prompt: string;
-    model: string;
-    responseFormat?: "text" | "json_object";
-    seed?: number;
-    maxTokens?: number;
-    temperature?: number;
-  }): Promise<AIResponse> {
-    return retryWithExponentialBackoff(
-      async () => {
-        const generateTextResponse = await this.generateText_Internal({
-          systemPrompt,
-          prompt,
-          model,
-          responseFormat,
-          maxTokens,
-          temperature,
-        });
-
-        return generateTextResponse;
-      },
-      (error) => {
-        return this.isOpenAI && error && error.message && error.message.includes('Rate limit reached') ||
-          (error.code && error.code === '429')
-      },
-      10, // Max retries
-      1000, // Initial delay in ms
-      32000 // Max delay in ms
-    );
-  }
-
-  private async generateText_Internal({
-    systemPrompt,
-    prompt,
-    model = OpenAIEnum.GPT35_TURBO,
-    responseFormat = "text",
-    maxTokens,
-    temperature,
-  }: {
-    systemPrompt: string;
-    prompt: string;
-    model: string;
-    responseFormat?: "text" | "json_object";
-    seed?: number;
-    maxTokens?: number;
-    temperature?: number;
-  }): Promise<AIResponse> {
-    const payload: any = {
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text:
-                responseFormat === "json_object" &&
-                model === OpenAIEnum.GPT35_TURBO
-                  ? `Return as valid JSON. Input: ${prompt}`
-                  : prompt,
-            },
-          ],
-        },
-      ],
-      ...(maxTokens && { max_tokens: maxTokens }),
-      ...(temperature && { temperature }),
-      ...(model === OpenAIEnum.GPT35_TURBO
-        ? { response_format: { type: responseFormat } }
-        : {}),
-      ...(this.isOpenAI && { model: AIModels.models[model][1] }),
-    };
-
-    return new Promise((resolve, reject) => {
-      const url = this.isOpenAI
-        ? `https://api.openai.com/v1/chat/completions`
-        : `https://${this.azureAIApiGpt35TurboInstanceName}.openai.azure.com/openai/deployments/${AIModels.models[model][0]}/chat/completions?api-version=2023-12-01-preview`;
-      const req = https.request(
-        url,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(this.isOpenAI
-              ? { Authorization: `Bearer ${this.openAIApiKey}` }
-              : { "api-key": this.azureAIApiGpt35TurboKey }),
           },
         },
         (res) => {

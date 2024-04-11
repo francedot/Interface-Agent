@@ -7,6 +7,7 @@ import {
   ToolsetPlan,
   Toolset,
   AIModel,
+  QuestionAnswer,
 } from "./types";
 
 /**
@@ -38,22 +39,25 @@ export class OSAgentCore {
     prompt,
     userQuery,
     tools,
-    requestClarifyingInfoAnswer = null,
+    ambiguityHandlingScore,
+    requestClarifyingInfoQA = null,
   }: {
     prompt: string;
     userQuery: string;
     tools: Toolset;
-    requestClarifyingInfoAnswer?: string;
+    ambiguityHandlingScore: number;
+    requestClarifyingInfoQA?: QuestionAnswer[];
   }): Promise<ToolsetPlan> {
     const aiClient = this.getClientForAIModel(this.settings.toolsPlannerModel);
     const generatePlanResult = await aiClient.generateText({
       systemPrompt: prompt,
       prompt: JSON.stringify({
         userQuery: userQuery,
-        toolset: tools.map((tool) => tool.title),
-        requestClarifyingInfoAnswer
+        toolset: tools,
+        ambiguityHandlingScore: ambiguityHandlingScore,
+        requestClarifyingInfoQA
       }),
-      model: this.settings.toolsPlannerModel.values[0],
+      model: this.settings.toolsPlannerModel.key,
       responseFormat: "json_object",
       temperature: 0.0,
       seed: 923, // Reproducible output
@@ -87,7 +91,7 @@ export class OSAgentCore {
     previousPage = null,
     currentPage,
     ambiguityHandlingScore,
-    clarifyingInfoAnswer = null,
+    requestClarifyingInfoQA = null,
     toolPrompt,
     keyboardVisible = null,
     scrollable = null,
@@ -97,13 +101,13 @@ export class OSAgentCore {
     previousPage?: OSAgentPage;
     currentPage: OSAgentPage;
     ambiguityHandlingScore: number;
-    clarifyingInfoAnswer?: string;
+    requestClarifyingInfoQA?: QuestionAnswer[];
     toolPrompt: string;
     keyboardVisible?: boolean;
     scrollable?: boolean;
     previousActions?: NLAction[];
   }): Promise<NLAction> {
-    const aiClient = this.getClientForAIModel(this.settings.toolsPlannerModel);
+    const aiClient = this.getClientForAIModel(this.settings.predictNextActionVisualModel);
 
     // Make sure the screenshots are watermarked
     await Promise.all([
@@ -121,13 +125,13 @@ export class OSAgentCore {
         toolPrompt: toolPrompt,
         currentPage: currentPage.location,
         ambiguityHandlingScore: ambiguityHandlingScore,
-        ...(clarifyingInfoAnswer != null && { clarifyingInfoAnswer: clarifyingInfoAnswer }),
+        ...(requestClarifyingInfoQA != null && { requestClarifyingInfoQA: requestClarifyingInfoQA }),
         ...(keyboardVisible != null && { keyboardVisible: keyboardVisible }),
         ...(scrollable && { scrollable: scrollable }),
         ...(previousActions &&
           previousActions.length > 0 && { previousActions: previousActions }),
       }),
-      model: this.settings.predictNextActionVisualModel.values[0], // TODO: Handle Azure AI
+      model: this.settings.predictNextActionVisualModel.key, // TODO: Handle Azure AI
       detailLevel: "auto",
       responseFormat: "json_object",
       maxTokens: 1250,
@@ -181,9 +185,9 @@ export class OSAgentCore {
         selectorFailures: selectorFailures,
       });
       console.log(`Generated ${codeSelectors.length} probable code selectors at retry ${retries}:`);
-      for (const codeSelector of codeSelectors) {
-        console.log(codeSelector);
-      }
+      // for (const codeSelector of codeSelectors) {
+      //   console.log(codeSelector);
+      // }
 
       for (const codeSelector of codeSelectors) {
         selector = codeSelector;
@@ -237,7 +241,7 @@ export class OSAgentCore {
     );
 
     const allCodeSelectorsByRelevance = codeSelectorsByRelevance.flat().filter((codeSelector) => codeSelector != null);
-    console.log(`Generated ${allCodeSelectorsByRelevance.length} probable code selectors by relevance: ${JSON.stringify(allCodeSelectorsByRelevance)}`);
+    // console.log(`Generated ${allCodeSelectorsByRelevance.length} probable code selectors by relevance: ${JSON.stringify(allCodeSelectorsByRelevance)}`);
     const sortedCodeSelectors =
       allCodeSelectorsByRelevance.sort(
         (a, b) => b.relevanceScore - a.relevanceScore)
@@ -263,7 +267,7 @@ export class OSAgentCore {
         ...(selectorFailures &&
           selectorFailures.length > 0 && { selectorFailures: selectorFailures }),
       }),
-      model: this.settings.generateCodeSelectorModel.values[0],
+      model: this.settings.generateCodeSelectorModel.key,
       responseFormat: "json_object",
       temperature: 0.6, // Increased temperature to encourage more variation in code generation if any 'selectorFailures' feedback
     });

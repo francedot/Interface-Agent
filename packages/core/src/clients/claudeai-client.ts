@@ -1,7 +1,7 @@
 import * as https from "https";
 import { getEnvironmentVariable, retryWithExponentialBackoff } from "../utils";
 import { AIClient } from "./ai-client";
-import { AIError, AIResponse, ClaudeAIInput } from "../types";
+import { AIError, AIModels, AIResponse, ClaudeAIEnum, ClaudeAIInput } from "../types";
 
 export class ClaudeAIClient implements AIClient {
   private apiKey: string;
@@ -17,6 +17,7 @@ export class ClaudeAIClient implements AIClient {
     prompt,
     model,
     responseFormat,
+    seed,
     maxTokens = 4096,
     temperature,
   }: {
@@ -24,6 +25,7 @@ export class ClaudeAIClient implements AIClient {
     prompt: string;
     model: string;
     responseFormat?: "text" | "json_object";
+    seed;
     maxTokens?: number;
     temperature?: number;
   }): Promise<any> {
@@ -33,16 +35,31 @@ export class ClaudeAIClient implements AIClient {
           systemPrompt,
           prompt,
           model,
-          responseFormat,
+          responseFormat: "text",
           maxTokens,
           temperature,
         });
-        return generateTextResponse;
+
+        if (responseFormat === "text") {
+          return generateTextResponse;
+        }
+
+        const generateJsonTextResponse = await this.generateText_Internal({
+          systemPrompt: "You are an AI assistant that converts the given input into valid JSON format. The assitant returns the JSON only.\n\nInput:\n",
+          prompt: generateTextResponse.choices[0].message.content,
+          model: ClaudeAIEnum.CLAUDE_3_HAIKU,
+          responseFormat: "json_object",
+          maxTokens,
+          temperature,
+        });
+
+        return generateJsonTextResponse;
       },
       (error) => {
         return error && error.message && error.message.includes('Rate limit reached') ||
           (error.code && error.code === '429') || 
-          (error.code && error.code === 'INVALID_JSON_RESPONSE');
+          (error.code && error.code === 'INVALID_JSON_RESPONSE') ||
+          (error.code && error.code === 'NO_CONTENT_IN_RESPONSE');
       },
       10, // Max retries
       1000, // Initial delay in ms
@@ -55,6 +72,7 @@ export class ClaudeAIClient implements AIClient {
     prompt,
     model,
     responseFormat,
+    seed,
     maxTokens,
     temperature,
   }: {
@@ -62,11 +80,12 @@ export class ClaudeAIClient implements AIClient {
     prompt: string;
     model: string;
     responseFormat?: "text" | "json_object";
+    seed?: number;
     maxTokens?: number;
     temperature?: number;
   }): Promise<any> {
     const userMessages = [
-      ...(prompt ? [ { type: "text", text: responseFormat === "json_object" ? `Return only JSON output: ${prompt}` : prompt, }] : []),
+      ...(prompt ? [ { type: "text", text: prompt, }] : []),
     ];
   
     const payload: any = {
@@ -76,7 +95,7 @@ export class ClaudeAIClient implements AIClient {
             "content": userMessages
         }
       ],
-      model,
+      model: AIModels.getModel(model).values[0],
       system: systemPrompt,
       ...(maxTokens && { max_tokens : maxTokens }),
       ...(temperature && { temperature }),
@@ -105,7 +124,7 @@ export class ClaudeAIClient implements AIClient {
               const err = new Error(response.error.message);
               reject(err);
             }
-            if (!response.content) {
+            if (!response || !response.content || response.content.length === 0) {
               console.log("No Response content");
               reject(new AIError("No content in response", "NO_CONTENT_IN_RESPONSE"));
             }
@@ -139,35 +158,55 @@ export class ClaudeAIClient implements AIClient {
     systemPrompt,
     prompt,
     model,
+    detailLevel = "auto",
     responseFormat,
     maxTokens = 4096,
     temperature,
+    isVisionEnhancementEnabled = false,
   }: {
     base64Images: string[];
     systemPrompt: string;
     prompt: string;
     model: string;
+    detailLevel?: "low" | "high" | "auto";
     responseFormat?: "text" | "json_object";
     maxTokens?: number;
     temperature?: number;
+    isVisionEnhancementEnabled?: boolean;
   }): Promise<any> {
     return retryWithExponentialBackoff(
       async () => {
-        const analyzeResponse = await this.analyzeImage_Internal({
+        const analyzeImageResponse = await this.analyzeImage_Internal({
           base64Images,
           systemPrompt,
           prompt,
           model,
-          responseFormat,
+          responseFormat: "text",
+          maxTokens,
+          temperature,
+          isVisionEnhancementEnabled
+        });
+      
+        if (responseFormat === "text") {
+          return analyzeImageResponse;
+        }
+
+        const generateJsonTextResponse = await this.generateText_Internal({
+          systemPrompt: "You are an AI assistant that converts the given input into valid JSON format. The assitant returns the JSON only.\n\nInput:\n",
+          prompt: analyzeImageResponse.choices[0].message.content,
+          model: ClaudeAIEnum.CLAUDE_3_HAIKU,
+          responseFormat: "json_object",
           maxTokens,
           temperature,
         });
-        return analyzeResponse;
+
+        return generateJsonTextResponse;
       },
       (error) => {
         return error && error.message && error.message.includes('Rate limit reached') ||
           (error.code && error.code === '429') || 
-          (error.code && error.code === 'INVALID_JSON_RESPONSE');
+          (error.code && error.code === 'INVALID_JSON_RESPONSE') ||
+          (error.code && error.code === 'NO_CONTENT_IN_RESPONSE');
       },
       5, // Max retries
       1000, // Initial delay in ms
@@ -180,17 +219,21 @@ export class ClaudeAIClient implements AIClient {
     systemPrompt,
     prompt,
     model,
+    detailLevel = "auto",
     responseFormat,
     maxTokens,
     temperature,
+    isVisionEnhancementEnabled = false,
   }: {
     base64Images: string[];
-    systemPrompt?: string;
-    prompt?: string;
+    systemPrompt: string;
+    prompt: string;
     model: string;
+    detailLevel?: "low" | "high" | "auto";
     responseFormat?: "text" | "json_object";
     maxTokens?: number;
     temperature?: number;
+    isVisionEnhancementEnabled?: boolean;
   }): Promise<any> {
     const userMessages = [
       ...(prompt ? [ { type: "text", text: responseFormat === "json_object" ? `Return only JSON output: ${prompt}` : prompt, }] : []),
@@ -211,7 +254,7 @@ export class ClaudeAIClient implements AIClient {
             "content": userMessages
         }
       ],
-      model,
+      model: AIModels.getModel(model).values[0],
       system: systemPrompt,
       ...(maxTokens && { max_tokens : maxTokens }),
       ...(temperature && { temperature }),
@@ -236,13 +279,14 @@ export class ClaudeAIClient implements AIClient {
           });
           res.on("end", async () => {
             const response = JSON.parse(data);
+            // console.log("Response: ", response);
             if (response.error) {
               const err = new Error(response.error.message);
               reject(err);
             }
-            if (!response.content) {
+            if (!response || !response.content || response.content.length === 0) {
               console.log("No Response content");
-              reject(new Error("No content in response"));
+              reject(new AIError("No content in response", "NO_CONTENT_IN_RESPONSE"));
             }
             if (responseFormat === "json_object") {
               try {

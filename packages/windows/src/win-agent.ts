@@ -5,8 +5,9 @@ import {
   OpenAIInput,
   Tool,
   ToolsetPlan,
-  ClaudeAIEnum,
-  ClaudeAIInput
+  ClaudeAIInput,
+  QuestionAnswer,
+  saveBase64ImageToFile
 } from "@osagent/core";
 import { sPrompt_Predict_Next_NL_Action_Visual } from "./prompts/predict-next-nl-action";
 import { WindowsActionHandler } from "./win-action-handler";
@@ -22,6 +23,7 @@ import { WindowsOSAgentSettings } from "./win-settings";
 export class WindowsAgent extends OSAgentBase {
   private windowsActionHandler: WindowsActionHandler;
   private toolsetMap: ToolsetMap = new Map<string, Tool>();
+  private : WindowsOSAgentSettings;
 
   /**
    * Constructs a new WindowsAgent instance.
@@ -52,20 +54,36 @@ export class WindowsAgent extends OSAgentBase {
       throw new Error("No tools are installed or Agent has not been initialized.");
     }
 
+    const activeWindows = await getActiveWindowsAsync();
+    const toolsAndWindows = new Map<string, Tool>(this.toolsetMap);
+    activeWindows.forEach(window => {
+      toolsAndWindows.set(window.title, {
+        title: window.title,
+        id: window.title,
+        isWindowRef: true
+      });
+    });
+
     let requestClarifyingInfo = true;
-    let requestClarifyingInfoAnswer: string | null = null;
+    let requestClarifyingInfoQA: QuestionAnswer[] = [];
     let plan: ToolsetPlan;
     while (requestClarifyingInfo) {
       plan = await this.osAgentCore.toolsPlanner_Agent({
         prompt: sPrompt_Tools_Planner,
         userQuery: query,
-        tools: Array.from(this.toolsetMap.values()),
+        tools: Array.from(toolsAndWindows.values()),
+        ambiguityHandlingScore: this.settings.ambiguityHandlingScore,
+        requestClarifyingInfoQA,
       });
 
       requestClarifyingInfo = plan.requestClarifyingInfo;
       if (plan.requestClarifyingInfo) {
         try {
-          requestClarifyingInfoAnswer = await this.requestClarifyingInfo(plan.requestClarifyingInfoQuestion);
+          const requestClarifyingInfoAnswer = await this.requestClarifyingInfo(plan.requestClarifyingInfoQuestion);
+          requestClarifyingInfoQA.push({
+            question: plan.requestClarifyingInfoQuestion,
+            answer: requestClarifyingInfoAnswer 
+          });
         } catch (error) {
           console.error("Error handling clarifying info:", error);
         }
@@ -79,7 +97,7 @@ export class WindowsAgent extends OSAgentBase {
 
     console.log(`Generated plan with ${plan.steps?.length ?? 0} steps: ${plan.description}`);
 
-    return await this.runFromPlanAsync({ plan });
+    return await this.runFromPlanAsync({ plan, toolsAndWindows });
   }
 
    /**
@@ -87,28 +105,32 @@ export class WindowsAgent extends OSAgentBase {
    * @param query - The query to be achieved.
    * @returns A promise resolving to an array of relevant data strings upon successfully achieving the goal.
    */
-   public async runFromPlanAsync({ plan }: { plan: ToolsetPlan }): Promise<string[][]> {
+   public async runFromPlanAsync({ plan, toolsAndWindows }: { plan: ToolsetPlan, toolsAndWindows: ToolsetMap }): Promise<string[][]> {
 
-    if (this.toolsetMap.size === 0) {
+    if (toolsAndWindows.size === 0) {
       throw new Error("No tools are installed or Agent has not been initialized.");
     }
 
     for (const toolStep of plan.steps) {
-      const tool = this.toolsetMap.get(toolStep.toolId);
+      const tool = toolsAndWindows.get(toolStep.toolId);
       if (tool == null) {
         throw new Error(`Invalid tool ID: ${toolStep.toolId}`);
       }
       console.log(`App: ${toolStep.toolId}, Goal: ${toolStep.toolPrompt}`);
-      await this.runToolStepAsync({ tool: tool, toolPrompt: toolStep.toolPrompt });
+      await this.runToolStepAsync({ tool: tool, toolPrompt: toolStep.toolPrompt, toolsAndWindows });
     }
 
     return [];
   }
 
-  private async runToolStepAsync(toolStep: { tool: Tool; toolPrompt: string }): Promise<string[][]> {
-    // Start-ApplicationAndCaptureHandles
+  private async runToolStepAsync(toolStep: { tool: Tool; toolPrompt: string, toolsAndWindows: ToolsetMap }): Promise<string[][]> {
+
+    let toolPrompt = toolStep.toolPrompt;
+
     console.log(`Starting at tool: ${toolStep.tool.title}`);
-    await launchToolAsync(toolStep.tool);
+    if (!toolStep.tool.isWindowRef) {
+      await launchToolAsync(toolStep.tool);
+    }
 
     const activeWindows = await getActiveWindowsAsync();
     const classifiedWindows = await this.windowDetect_Agent({
@@ -131,20 +153,22 @@ export class WindowsAgent extends OSAgentBase {
 
     this.windowsActionHandler = new WindowsActionHandler(this.osAgentCore);
     const actions: NLAction[] = [];
-    let nextClarifyingInfoAnswer: string | null = null;
+    let requestClarifyingInfoQA: QuestionAnswer[] = [];
     while (true) {
       let nextAction: NLAction;
       try {
+        const last3Actions = actions.slice(-3).map(action => this.stripUnneededFields(action));
         nextAction = await this.osAgentCore.predictNextNLAction_Visual_Agent({
           prompt: sPrompt_Predict_Next_NL_Action_Visual,
           previousPage: previousOSAgentPage,
           currentPage: currentOSAgentPage,
-          toolPrompt: toolStep.toolPrompt,
-          previousActions: actions,
-          ambiguityHandlingScore: this.ambiguityHandlingScore,
-          clarifyingInfoAnswer: nextClarifyingInfoAnswer
+          toolPrompt: toolPrompt,
+          previousActions: last3Actions,
+          ambiguityHandlingScore: this.settings.ambiguityHandlingScore,
+          requestClarifyingInfoQA: requestClarifyingInfoQA
         });
-        console.log(JSON.stringify(nextAction, null, 6));
+        // console.log(`Revised tool prompt: ${nextAction.revisedToolPrompt}`);
+        // toolPrompt = nextAction.revisedToolPrompt; // Update tool prompt for next iteration
         actions.push(nextAction);
       }
       catch (error) {
@@ -169,19 +193,26 @@ export class WindowsAgent extends OSAgentBase {
         console.log(`Found relevant data strings: ${joinedRelevantData}`);
       }
      
-      nextClarifyingInfoAnswer = null; // Reset clarifying info answer
-      if (nextAction.actionType === "wait" && nextAction.requestClarifyingInfo) {
+      if (nextAction.actionType === "nop" && nextAction.requestClarifyingInfo) {
         try {
-          nextClarifyingInfoAnswer = await this.requestClarifyingInfo(nextAction.requestClarifyingInfoQuestion);
+          const requestClarifyingInfoAnswer = await this.requestClarifyingInfo(nextAction.requestClarifyingInfoQuestion);
+          requestClarifyingInfoQA.push({
+            question: nextAction.requestClarifyingInfoQuestion,
+            answer: requestClarifyingInfoAnswer 
+          });
           continue; // Predict the next action with the clarifying info added
         } catch (error) {
           console.error("Error handling clarifying info:", error);
         }
+      } else {
+        requestClarifyingInfoQA = null; // Reset clarifying info answer
       }
 
       await this.windowsActionHandler.performAction(nextAction, currentOSAgentPage);
 
-      // saveBase64ImageToFile(currentOSAgentPage.screens[0].base64ValueWithBeforeWatermark);
+      // if (previousOSAgentPage?.screens[0]?.base64ValueWithBeforeWatermark) {
+      //   saveBase64ImageToFile(previousOSAgentPage.screens[0].base64ValueWithBeforeWatermark);
+      // }
       // saveBase64ImageToFile(currentOSAgentPage.screens[0].base64ValueWithAfterWatermark);
 
       const nextOSAgentPage = await WindowsOSAgentPage.fromUIAutomationAsync({
@@ -212,7 +243,7 @@ export class WindowsAgent extends OSAgentBase {
         appTitle: tool.title,
         activeWindows,
       }),
-      model: model.values[0], // TODO: Handle Azure AI
+      model: model.key, // TODO: Handle Azure AI
       seed: 923, // Reproducible output
       responseFormat: "json_object",
       temperature: 0,
@@ -232,4 +263,12 @@ export class WindowsAgent extends OSAgentBase {
 
     return windows;
   }
+
+  private stripUnneededFields(action: NLAction): NLAction {
+    action.relevantData = null;
+    action.revisedToolPrompt = null;
+
+    return action;
+  }
 }
+

@@ -184,4 +184,17 @@ export async function performActionType(winHandle: string, xPathSelector: string
   }
 }
 
-// TODO Scroll
+export async function performActionScroll(winHandle: string, xPathSelector: string, scrollDirection: "up" | "down"): Promise<boolean> {
+  try {
+    const invokeUiElementScrollResult = await runPowerShellModuleFunction('Invoke-UIElementScroll', {
+      WindowHandle: winHandle,
+      XPath: xPathSelector,
+      Direction: scrollDirection
+    });
+
+    return invokeUiElementScrollResult.toLowerCase() === 'true';
+  } catch (error) {
+    console.error(`Error performing type action for app: ${winHandle}`, error);
+    throw error;
+  }
+}

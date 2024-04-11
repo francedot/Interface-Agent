@@ -4,7 +4,7 @@ import { decode } from "html-entities";
 import * as path from "path";
 import { CheerioAPI, Element } from "cheerio";
 import sizeOf from 'image-size';
-import { AIModel, BoundingBox, ScreenSize } from "./types";
+import { AIModel, AIModelEnum, BoundingBox, ClaudeAIEnum, OpenAIEnum, ScreenSize } from "./types";
 import Jimp from 'jimp';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -465,8 +465,8 @@ export function getImageDimensionsFromBase64(base64String: string): { width: num
   const buffer = Buffer.from(base64String, 'base64');
   const dimensions = sizeOf(buffer);
   return {
-      width: dimensions.width,
-      height: dimensions.height
+    width: dimensions.width,
+    height: dimensions.height
   };
 }
 
@@ -491,10 +491,10 @@ export function transformBoundingBox(
 
   // Apply scale factors to bounding box
   const transformedBoundingBox: BoundingBox = [
-      boundingBox[0] * scaleFactorWidth, // Scaled topLeftX
-      boundingBox[1] * scaleFactorHeight, // Scaled topLeftY
-      boundingBox[2] * scaleFactorWidth, // Scaled width
-      boundingBox[3] * scaleFactorHeight, // Scaled height
+    boundingBox[0] * scaleFactorWidth, // Scaled topLeftX
+    boundingBox[1] * scaleFactorHeight, // Scaled topLeftY
+    boundingBox[2] * scaleFactorWidth, // Scaled width
+    boundingBox[3] * scaleFactorHeight, // Scaled height
   ];
 
   return transformedBoundingBox;
@@ -524,53 +524,53 @@ export function calculateBoundingBoxCenter(boundingBox: BoundingBox): { centerX:
  * @returns A Promise that resolves to the base64-encoded image with the bounding box drawn.
  */
 export async function drawBoundingBoxOnImage(base64Image: string, boundingBox: BoundingBox): Promise<string> {
-    // Load the image from the base64 string
-    const image = await Jimp.read(Buffer.from(base64Image, 'base64'));
+  // Load the image from the base64 string
+  const image = await Jimp.read(Buffer.from(base64Image, 'base64'));
 
-    // Extract the bounding box coordinates
-    const [topX, topY, width, height] = boundingBox;
+  // Extract the bounding box coordinates
+  const [topX, topY, width, height] = boundingBox;
 
-    // Define the color and width of the bounding box's border
-    const color = Jimp.cssColorToHex('#FF0000'); // Red color
-    const borderWidth = 2; // You can adjust the border width
+  // Define the color and width of the bounding box's border
+  const color = Jimp.cssColorToHex('#FF0000'); // Red color
+  const borderWidth = 2; // You can adjust the border width
 
-    // Draw the top and bottom lines
-    image.scan(topX, topY, width, borderWidth, function(x, y, idx) {
-        this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
-        this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
-        this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
-        this.bitmap.data[idx + 3] = color & 255;         // Alpha
+  // Draw the top and bottom lines
+  image.scan(topX, topY, width, borderWidth, function (x, y, idx) {
+    this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
+    this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
+    this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
+    this.bitmap.data[idx + 3] = color & 255;         // Alpha
+  });
+
+  image.scan(topX, topY + height - borderWidth, width, borderWidth, function (x, y, idx) {
+    this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
+    this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
+    this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
+    this.bitmap.data[idx + 3] = color & 255;         // Alpha
+  });
+
+  // Draw the left and right lines
+  image.scan(topX, topY, borderWidth, height, function (x, y, idx) {
+    this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
+    this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
+    this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
+    this.bitmap.data[idx + 3] = color & 255;         // Alpha
+  });
+
+  image.scan(topX + width - borderWidth, topY, borderWidth, height, function (x, y, idx) {
+    this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
+    this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
+    this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
+    this.bitmap.data[idx + 3] = color & 255;         // Alpha
+  });
+
+  // Get the modified image as a base64 string
+  return new Promise((resolve, reject) => {
+    image.getBase64(Jimp.MIME_PNG, (err, base64) => {
+      if (err) reject(err);
+      else resolve(base64.split(',')[1]); // Return the base64 content without the MIME type prefix
     });
-
-    image.scan(topX, topY + height - borderWidth, width, borderWidth, function(x, y, idx) {
-        this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
-        this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
-        this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
-        this.bitmap.data[idx + 3] = color & 255;         // Alpha
-    });
-
-    // Draw the left and right lines
-    image.scan(topX, topY, borderWidth, height, function(x, y, idx) {
-        this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
-        this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
-        this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
-        this.bitmap.data[idx + 3] = color & 255;         // Alpha
-    });
-
-    image.scan(topX + width - borderWidth, topY, borderWidth, height, function(x, y, idx) {
-        this.bitmap.data[idx + 0] = (color >> 24) & 255; // Red
-        this.bitmap.data[idx + 1] = (color >> 16) & 255; // Green
-        this.bitmap.data[idx + 2] = (color >> 8) & 255;  // Blue
-        this.bitmap.data[idx + 3] = color & 255;         // Alpha
-    });
-
-    // Get the modified image as a base64 string
-    return new Promise((resolve, reject) => {
-        image.getBase64(Jimp.MIME_PNG, (err, base64) => {
-            if (err) reject(err);
-            else resolve(base64.split(',')[1]); // Return the base64 content without the MIME type prefix
-        });
-    });
+  });
 }
 
 /**
@@ -587,11 +587,12 @@ export async function insertTextIntoImage(base64Image: string, text: string): Pr
   // Load a font
   const font = await Jimp.loadFont(Jimp.FONT_SANS_128_WHITE); // Choose the font size and color
 
-    // Calculate text width
-    const textWidth = Jimp.measureText(font, text);
+  // Calculate text width
+  const textWidth = Jimp.measureText(font, text);
 
   // Define the position for the text (top-left corner)
-  const x = (image.bitmap.width - textWidth) / 2; // Center the text horizontally
+  // const x = (image.bitmap.width - textWidth) / 2; // Center the text horizontally
+  const x = 10; // Margin from the left edge, adjust as needed
   const y = 10; // Margin from the top edge, adjust as needed
 
   // Insert the text into the image
@@ -599,10 +600,10 @@ export async function insertTextIntoImage(base64Image: string, text: string): Pr
 
   // Get the modified image as a base64 string
   return new Promise((resolve, reject) => {
-      image.getBase64(Jimp.MIME_PNG, (err, base64) => {
-          if (err) reject(err);
-          else resolve(base64.split(',')[1]); // Return the base64 content without the MIME type prefix
-      });
+    image.getBase64(Jimp.MIME_PNG, (err, base64) => {
+      if (err) reject(err);
+      else resolve(base64.split(',')[1]); // Return the base64 content without the MIME type prefix
+    });
   });
 }
 
@@ -620,7 +621,27 @@ export async function saveBase64ImageToFile(base64Image: string) {
   fs.writeFileSync(fileName, buffer);
 }
 
-export function getEnumKey(myEnum: any, enumValue: string): string | null {
-  let keys = Object.keys(myEnum).filter(x => myEnum[x] == enumValue);
-  return keys.length > 0 ? keys[0] : null;
-}
+// function findInEnums<T>(predicate: (enumObj: any) => T): T | null {
+//   let result = predicate(OpenAIEnum);
+//   if (result !== null) return result;
+
+//   result = predicate(ClaudeAIEnum);
+//   if (result !== null) return result;
+
+//   return null;
+// }
+
+// export function getAIModelEnumValueFromKey(key: string): AIModelEnum | null {
+//   return findInEnums((enumObj) => key in enumObj ? enumObj[key as keyof typeof enumObj] : null);
+// }
+
+// export function getAIModelEnumKeyFromValue(value: AIModelEnum): string | null {
+//   return findInEnums((enumObj) => {
+//     for (let key in enumObj) {
+//       if (enumObj[key as keyof typeof enumObj] === value) {
+//         return key;
+//       }
+//     }
+//     return null;
+//   });
+// }
