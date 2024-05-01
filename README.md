@@ -1,4 +1,4 @@
-# <img align="center" src="./img/logo.png" width="28" style="margin-bottom:5px;margin-right:2px;">Agent
+# <img align="center" src="./img/logo.png" width="27"> Agent
 
 <p align="center">
   <a href="/"><img src="https://img.shields.io/badge/typescript-gray?logo=typescript" alt="TypeScript"></a>
