@@ -1,20 +1,20 @@
-import { OSAgentPage, PageScreen, reduceXmlDomWithChunks } from "@osagent/core";
+import { InterfaceAgentPage, PageScreen, reduceXmlDomWithChunks } from "@interface-agent/core";
 
 /**
- * Class representing a OSAgent page as input to OSAgent.
+ * Class representing a InterfaceAgent page as input to InterfaceAgent.
  * This class encapsulates the details of a webpage including its URL, screenshots, and DOM content.
- * It provides a static method to create a OSAgentPage instance from a Playwright Page object.
+ * It provides a static method to create a InterfaceAgentPage instance from a Playwright Page object.
  */
-export class AppiumiOSOSAgentPage extends OSAgentPage {
+export class AppiumiOSInterfaceAgentPage extends InterfaceAgentPage {
   
   /**
-   * Creates a OSAgentPage instance from a Playwright Page object.
+   * Creates a InterfaceAgentPage instance from a Playwright Page object.
    * This method captures the DOM content and a full-page screenshot of the given Playwright Page.
-   * The DOM content and screenshot are then used to create a OSAgentPage instance.
+   * The DOM content and screenshot are then used to create a InterfaceAgentPage instance.
    *
    * @param page - The Playwright Page object.
    * @param reduce - Optional: A flag to determine if DOM should be reduced for grounding.
-   * @returns A Promise that resolves to a OSAgentPage instance.
+   * @returns A Promise that resolves to a InterfaceAgentPage instance.
    */
   public static async fromAppiumAsync({
     wdioClient,
@@ -23,7 +23,7 @@ export class AppiumiOSOSAgentPage extends OSAgentPage {
     wdioClient: WebdriverIO.Browser;
     location: string;
     reduce?: boolean;
-  }): Promise<OSAgentPage> {
+  }): Promise<InterfaceAgentPage> {
     const screenshot = await wdioClient.takeScreenshot();
     const pageScreens = [
       {
@@ -35,7 +35,7 @@ export class AppiumiOSOSAgentPage extends OSAgentPage {
     const domContent = await wdioClient.getPageSource();
     const { reducedDomContent, chunks } = reduceXmlDomWithChunks(domContent);
 
-    return new OSAgentPage({
+    return new InterfaceAgentPage({
       location: location,
       screens: pageScreens,
       domContent: domContent,

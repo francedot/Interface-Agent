@@ -1,6 +1,6 @@
-import { AIModel, OSAgentSettings } from "@osagent/core";
+import { AIModel, InterfaceAgentSettings } from "@interface-agent/core";
 
-export class WindowsOSAgentSettings extends OSAgentSettings {
+export class WindowsInterfaceAgentSettings extends InterfaceAgentSettings {
     windowDetectModel: AIModel;
 
     protected constructor() {
@@ -8,11 +8,11 @@ export class WindowsOSAgentSettings extends OSAgentSettings {
         this.windowDetectModel = this.getAIComponentModel("WINDOW_DETECT_MODEL");
     }
 
-    public static getInstance(): WindowsOSAgentSettings {
-        if (!WindowsOSAgentSettings.instance) {
-            WindowsOSAgentSettings.instance = new WindowsOSAgentSettings();
+    public static getInstance(): WindowsInterfaceAgentSettings {
+        if (!WindowsInterfaceAgentSettings.instance) {
+            WindowsInterfaceAgentSettings.instance = new WindowsInterfaceAgentSettings();
         }
 
-        return WindowsOSAgentSettings.instance as WindowsOSAgentSettings;
+        return WindowsInterfaceAgentSettings.instance as WindowsInterfaceAgentSettings;
     }
 }

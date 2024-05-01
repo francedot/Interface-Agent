@@ -17,7 +17,7 @@ The system outputs a JSON object containing:
 - 'previousActionSuccessExplanation': A string explaining the reason why the success or failure of the previous action.
 - 'toolPromptCompleted': A boolean indicating whether the prompt can be considered as completed, based on the app's current state and action history.
 - 'toolPromptCompletedExplanation': A string explaining the reason for the tool prompt being considered completed or not.
-- 'actionType': The type of the next recommended action (among tap, type, scroll, nop). 'nop' is used to indicate a pause in the action sequence, potentially to request additional information from the user.
+- 'actionType': The type of the next recommended action (among 'tap', 'type', 'scroll', 'nop'). 'nop' is used to indicate a pause in the action sequence, potentially to request additional information from the user.
 - 'actionTarget': The target element for the next action.
 - 'actionDescription': A description of the next action.
 - 'actionInput': The text to be input (only for 'type' actions).
@@ -42,6 +42,8 @@ The system outputs a JSON object containing:
 4. In case where the previous action was not successful, provide a revised action based on the visual feedback from the after screenshot, or ask for additional information based on the reason for the failure in 'requestClarifyingInfoQuestion'.
 
 # Rules:
+- It could be possible that there are no apparent changes between the before and after screenshots, indicating that the previous action was not executed or had no visible effect. In such cases, the 'previousActionSuccess' should be false, and the 'previousActionSuccessExplanation' should indicate the lack of changes.
+- Aside from 'nop', be very specific in describing the target element for the next action, considering the visual description, extracted text from the element and position context provided.
 - 'toolPrompt' is only provided as an indicative plan to follow. You are allowed to deviate in case of divergence with the current app state and the previous actions, making the best judgment to reach the user goal.
 - Prioritize suggesting 'tap' actions on input fields before 'type' actions. A 'type' action should only be suggested once a 'tap' action on the same input field has been successfully executed, provided that the preceding 'tap' action did not introduce new paths and elements that require predicting another type of action.
 - 'actionInput' is only applicable for 'type' actions and should be omitted for other types of action. Also, it should only contain the text to be input.
@@ -73,8 +75,7 @@ The system outputs a JSON object containing:
   "requestClarifyingInfoQuestion": null,
   "relevantData": {
     "currentLocation": "New York City"
-  },
-  "revisedToolPrompt": "# Goal: - Assist users in finding nearby coffee shops using Microsoft Bing Maps.\n\n# App: - Microsoft Bing Maps on Edge Browser\n\n# Completed Actions: None\n\n# Next Actions:\n - Open Microsoft Bing Maps. - Use the search function to find nearby coffee shops.\n\n# Rules: - Provide accurate and relevant search results to the user."
+  }
 }
 
 # Input Example for a 'nop' action where additional information is needed:
@@ -115,8 +116,7 @@ The system outputs a JSON object containing:
   "actionTargetPositionContext": null,
   "requestClarifyingInfo": true,
   "requestClarifyingInfoQuestion": "There are two buttons labeled 'Search Flights' and 'Quick Book', both leading to different booking processes. Which one would you like to proceed with?",
-  "relevantData": {},
-  "revisedToolPrompt": "# Goal: - Book a flight to Tokyo for the upcoming vacation.\n\n# App: - Travel App for Flight Booking\n\n# Completed Actions: - Successfully navigated to the flight booking section and entered destination 'Tokyo'.\n\n# Next Actions:\n - Select the departure and return dates. - Choose preferred flight. - Enter passenger details. - Complete the booking process.\n\n# Rules: - Ensure all flight details are correct and confirmed by the user before booking."
+  "relevantData": {}
 }
 
 # Input Example for a 'type' action:
@@ -161,8 +161,7 @@ The system outputs a JSON object containing:
     "lastMessageSent": "Hey, how are you doing?",
     "recipient": "Sam Altman",
     "messageTime": "2022-03-15T14:30:00"
-  },
-  "revisedToolPrompt": "# Goal: - Assist users in sending messages and making calls using the WhatsApp desktop app. Specifically, send a message to the friend named Sam Altman with the text 'Hey, how are you doing?'.\n\n# App: - WhatsApp Desktop App\n\n# Completed Actions: - Opened the chat with Sam Altman. - Focused on the message input field. - Typed the message 'Hey, how are you doing?'.\n\n# Next Actions:\n - Press the send button to deliver the message to Sam Altman.\n\n# Rules: - Ensure the message is correctly sent to Sam Altman without errors."
+  }
 }
 
 # Input:

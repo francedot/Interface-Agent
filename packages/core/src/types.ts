@@ -251,14 +251,14 @@ export interface StartTask {
 }
 
 /**
- * Class representing a OSAgent page as input to OSAgent.
+ * Class representing a InterfaceAgent page as input to InterfaceAgent.
  * @property {string} location - The location of the page.
  * @property {PageScreen[]} screens - The screens of the page.
  * @property {string} domContent - The DOM content of the page.
  * @property {string} reducedDomContent - The reduced DOM content of the page.
  * @property {string[]} reducedDomChunks - The reduced DOM chunks of the page.
  */
-export class OSAgentPage {
+export class InterfaceAgentPage {
   location: string;
   screens: PageScreen[];
   domContent: string;
@@ -267,8 +267,8 @@ export class OSAgentPage {
   minimizedDomContent?: string;
 
   /**
-   * Creates a OSAgentPage instance.
-   * @param {Object} params - The parameters for the OSAgentPage.
+   * Creates a InterfaceAgentPage instance.
+   * @param {Object} params - The parameters for the InterfaceAgentPage.
    * @param {string} params.location - The location of the page.
    * @param {PageScreen[]} params.screens - The screens of the page.
    * @param {string} params.domContent - The DOM content of the page.
@@ -300,9 +300,9 @@ export class OSAgentPage {
 
   /**
    * Draws a watermark on the screens of the page.
-   * @returns {Promise<OSAgentPage>} - The page with watermarked screens.
+   * @returns {Promise<InterfaceAgentPage>} - The page with watermarked screens.
    */
-  public async drawBeforeWatermarkAsync(): Promise<OSAgentPage> {
+  public async drawBeforeWatermarkAsync(): Promise<InterfaceAgentPage> {
 
     // Watermark the image with a BEFORE watermark
     await Promise.all(this.screens.map(async (screen) => {
@@ -315,9 +315,9 @@ export class OSAgentPage {
 
   /**
    * Draws a watermark on the screens of the page.
-   * @returns {Promise<OSAgentPage>} - The page with watermarked screens.
+   * @returns {Promise<InterfaceAgentPage>} - The page with watermarked screens.
    */
-  public async drawAfterWatermarkAsync(): Promise<OSAgentPage> {
+  public async drawAfterWatermarkAsync(): Promise<InterfaceAgentPage> {
 
     // Watermark the image with a AFTER watermark
     await Promise.all(this.screens.map(async (screen) => {
@@ -331,7 +331,7 @@ export class OSAgentPage {
 }
 
 /**
- * Interface representing a OSAgent Page Screen.
+ * Interface representing a InterfaceAgent Page Screen.
  * This includes the metadata and the screenshot data in base64 format.
  * @property {string} metadata - The metadata of the screen.
  * @property {string} base64Value - The screenshot data in base64 format.
@@ -413,7 +413,7 @@ export interface ToolsetPlan {
 }
 
 /**
- * Interface representing a OSAgent Action in Natural Language.
+ * Interface representing a InterfaceAgent Action in Natural Language.
  * @property {boolean | null} previousActionSuccess - Indicates if the previous action was successful.
  * @property {string} previousActionSuccessExplanation - Explanation of the success or failure of the previous action.
  * @property {boolean} endGoalMet - Indicates if the end goal was met.
@@ -432,7 +432,7 @@ export interface NLAction {
   previousActionSuccessExplanation: string;
   toolPromptCompleted: boolean;
   toolPromptCompletedExplanation: string;
-  actionType: ActionType;
+  actionType: string;
   actionTarget: string;
   // actionTargetBoundingBox: BoundingBox;
   actionDescription: string;

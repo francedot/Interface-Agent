@@ -1,7 +1,7 @@
 import { AIClient } from "./clients/ai-client";
 import { AIClientFactoryImpl } from "./clients/ai-client-factory";
-import { OSAgentCore as OSAgentCore } from "./osagent-core";
-import { OSAgentSettings } from "./osagent-settings";
+import { InterfaceAgentCore as InterfaceAgentCore } from "./iagent-core";
+import { InterfaceAgentSettings } from "./iagent-settings";
 import {
   AzureAIInput,
   ClarifyingInfoEventArgs,
@@ -11,15 +11,15 @@ import {
 } from "./types";
 
 /**
- * The OSAgentBaseAgent class is an abstract class that provides a base for creating multi-modal agents that use the OSAgent framework to achieve a specified end goal using a series of actions.
+ * The InterfaceAgentBase class is an abstract class that provides a base for creating multi-modal agents that use the InterfaceAgent framework to achieve a specified end goal using a series of actions.
  */
-export abstract class OSAgentBase {
+export abstract class InterfaceAgentBase {
   protected aiClients: AIClient[];
-  protected settings: OSAgentSettings;
-  protected osAgentCore: OSAgentCore;
+  protected settings: InterfaceAgentSettings;
+  protected InterfaceAgentCore: InterfaceAgentCore;
 
   /**
-   * Constructs a new OSAgentBaseAgent instance.
+   * Constructs a new InterfaceAgentBase instance.
    * @param fields - Configuration fields including OpenAI and AzureAI inputs.
    */
   constructor(
@@ -28,14 +28,14 @@ export abstract class OSAgentBase {
       Partial<ClaudeAIInput> & {
         configuration?: { organization?: string }
       },
-      settings?: OSAgentSettings
+      settings?: InterfaceAgentSettings
   ) {
     this.aiClients = [
       new AIClientFactoryImpl().createClient("OpenAI", fields),
       new AIClientFactoryImpl().createClient("ClaudeAI", fields),
     ];
     this.settings = settings;
-    this.osAgentCore = new OSAgentCore(this.aiClients, settings);
+    this.InterfaceAgentCore = new InterfaceAgentCore(this.aiClients, settings);
   }
 
   /**

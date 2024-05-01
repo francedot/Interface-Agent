@@ -1,5 +1,5 @@
 {
-  "name": "osagent",
+  "name": "interface-agent",
   "private": true,
   "workspaces": [
     "packages/*"

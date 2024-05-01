@@ -1,8 +1,8 @@
 import { AIModel, AIModels } from "./types";
 import { getEnvironmentVariable } from "./utils";
 
-export abstract class OSAgentSettings {
-    protected static instance: OSAgentSettings;
+export abstract class InterfaceAgentSettings {
+    protected static instance: InterfaceAgentSettings;
 
     ambiguityHandlingScore: number;
     toolsPlannerModel: AIModel;

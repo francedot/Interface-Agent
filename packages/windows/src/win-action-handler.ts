@@ -1,19 +1,19 @@
-import { NLAction, OSAgentCore } from "@osagent/core";
+import { NLAction, InterfaceAgentCore } from "@interface-agent/core";
 import { sPrompt_Generate_Code_Selectors_Windows } from "./prompts/generate-code-selector";
 import { performActionScroll, performActionTap, performActionType } from "./utils";
-import { WindowsOSAgentPage } from "./types";
+import { WindowsInterfaceAgentPage } from "./types";
 
 export class WindowsActionHandler {
-    private readonly osAgent: OSAgentCore;
+    private readonly InterfaceAgent: InterfaceAgentCore;
     private readonly runCodeSelectorMaxRetries = 3;
 
-    constructor(osAgent: OSAgentCore) {
-        this.osAgent = osAgent;
+    constructor(InterfaceAgent: InterfaceAgentCore) {
+        this.InterfaceAgent = InterfaceAgent;
     }
 
-    public async performAction(nextAction: NLAction, currentPage: WindowsOSAgentPage): Promise<void> {
+    public async performAction(nextAction: NLAction, currentPage: WindowsInterfaceAgentPage): Promise<void> {
 
-        const codeSelectorsResult = await this.osAgent.generateCodeSelectorsWithRetry_Agent({
+        const codeSelectorsResult = await this.InterfaceAgent.generateCodeSelectorsWithRetry_Agent({
             prompt: sPrompt_Generate_Code_Selectors_Windows,
             inputPage: currentPage,
             nextAction: nextAction,

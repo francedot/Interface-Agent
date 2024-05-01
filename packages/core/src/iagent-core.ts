@@ -1,7 +1,7 @@
 import { AIClient } from "./clients/ai-client";
-import { OSAgentSettings } from "./osagent-settings";
+import { InterfaceAgentSettings } from "./iagent-settings";
 import {
-  OSAgentPage,
+  InterfaceAgentPage,
   NLAction,
   CodeSelectorByRelevance,
   ToolsetPlan,
@@ -11,18 +11,18 @@ import {
 } from "./types";
 
 /**
- * OSAgent is a class providing an unenforced agentic framework for guiding users through a series of natural language tasks to achieve a specified end goal.
+ * InterfaceAgent is a class providing an unenforced agentic framework for guiding users through a series of natural language tasks to achieve a specified end goal.
  */
-export class OSAgentCore {
+export class InterfaceAgentCore {
 
   private aiClients: AIClient[];
-  private settings: OSAgentSettings;
+  private settings: InterfaceAgentSettings;
 
   /**
-   * Constructs a new OSAgent instance with optional configuration for OpenAI and AzureAI clients.
+   * Constructs a new InterfaceAgent instance with optional configuration for OpenAI and AzureAI clients.
    * @param fields - An object containing OpenAI and AzureAI input configurations, as well as any additional configuration parameters.
    */
-  constructor(aiClients: AIClient[], settings?: OSAgentSettings) {
+  constructor(aiClients: AIClient[], settings?: InterfaceAgentSettings) {
     this.aiClients = aiClients;
     this.settings = settings;
   }
@@ -77,8 +77,8 @@ export class OSAgentCore {
    * An agent for predicting the next natural language action based on the current state of the system and the previous actions.
    * @param {Object} params - The parameters for the visual agent.
    * @param {string} params.prompt - The system prompt.
-   * @param {OSAgentPage} [params.previousPage] - The previous page (optional).
-   * @param {OSAgentPage} params.currentPage - The current page.
+   * @param {InterfaceAgentPage} [params.previousPage] - The previous page (optional).
+   * @param {InterfaceAgentPage} params.currentPage - The current page.
    * @param {string} params.endGoal - The end goal.
    * @param {boolean} params.keyboardVisible - Indicates if the keyboard is visible.
    * @param {boolean} params.scrollable - Indicates if the page is scrollable.
@@ -98,8 +98,8 @@ export class OSAgentCore {
     previousActions,
   }: {
     prompt: string;
-    previousPage?: OSAgentPage;
-    currentPage: OSAgentPage;
+    previousPage?: InterfaceAgentPage;
+    currentPage: InterfaceAgentPage;
     ambiguityHandlingScore: number;
     requestClarifyingInfoQA?: QuestionAnswer[];
     toolPrompt: string;
@@ -108,52 +108,63 @@ export class OSAgentCore {
     previousActions?: NLAction[];
   }): Promise<NLAction> {
     const aiClient = this.getClientForAIModel(this.settings.predictNextActionVisualModel);
+    const maxRetries = 3; // Maximum number of retries
+    let retryCount = 0;
 
-    // Make sure the screenshots are watermarked
-    await Promise.all([
-      previousPage ? previousPage.drawBeforeWatermarkAsync() : Promise.resolve(),
-      currentPage.drawAfterWatermarkAsync()
-    ]);
+    while (retryCount < maxRetries) {
+      // Ensure the screenshots are watermarked
+      await Promise.all([
+        previousPage ? previousPage.drawBeforeWatermarkAsync() : Promise.resolve(),
+        currentPage.drawAfterWatermarkAsync()
+      ]);
 
-    const visualGroundingResult = await aiClient.analyzeImage({
-      base64Images: [
-        ...(previousPage ? [previousPage.screens.map((screen) => screen.base64ValueWithBeforeWatermark)[0]] : []), // Only if not null we provide the previous page
-        currentPage.screens.map((screen) => screen.base64ValueWithAfterWatermark)[0]
-      ],
-      systemPrompt: prompt,
-      prompt: JSON.stringify({
-        toolPrompt: toolPrompt,
-        currentPage: currentPage.location,
-        ambiguityHandlingScore: ambiguityHandlingScore,
-        ...(requestClarifyingInfoQA != null && { requestClarifyingInfoQA: requestClarifyingInfoQA }),
-        ...(keyboardVisible != null && { keyboardVisible: keyboardVisible }),
-        ...(scrollable && { scrollable: scrollable }),
-        ...(previousActions &&
-          previousActions.length > 0 && { previousActions: previousActions }),
-      }),
-      model: this.settings.predictNextActionVisualModel.key, // TODO: Handle Azure AI
-      detailLevel: "auto",
-      responseFormat: "json_object",
-      maxTokens: 1250,
-      temperature: 0,
-    });
+      const visualGroundingResult = await aiClient.analyzeImage({
+        base64Images: [
+          ...(previousPage ? [previousPage.screens.map((screen) => screen.base64ValueWithBeforeWatermark)[0]] : []),
+          currentPage.screens.map((screen) => screen.base64ValueWithAfterWatermark)[0]
+        ],
+        systemPrompt: prompt,
+        prompt: JSON.stringify({
+          toolPrompt: toolPrompt,
+          currentPage: currentPage.location,
+          ambiguityHandlingScore: ambiguityHandlingScore,
+          ...(requestClarifyingInfoQA != null && { requestClarifyingInfoQA: requestClarifyingInfoQA }),
+          ...(keyboardVisible != null && { keyboardVisible: keyboardVisible }),
+          ...(scrollable && { scrollable: scrollable }),
+          ...(previousActions && previousActions.length > 0 && { previousActions: previousActions }),
+        }),
+        model: this.settings.predictNextActionVisualModel.key,
+        detailLevel: "auto",
+        responseFormat: "json_object",
+        maxTokens: 2500,
+        temperature: 0,
+      });
 
-    let nlAction: NLAction;
-    try {
-      nlAction = JSON.parse(visualGroundingResult.choices[0].message.content);
-    } catch (e) {
-      console.error("Parsed content is not valid JSON");
-      throw e;
+      let nlAction: NLAction;
+      try {
+        nlAction = JSON.parse(visualGroundingResult.choices[0].message.content);
+        if (nlAction && nlAction.actionType !== undefined) {
+          return nlAction; // Return successfully parsed and valid action
+        }
+        console.warn(`Retrying as actionType is undefined: Attempt ${retryCount + 1}`);
+      } catch (e) {
+        console.error("Parsed content is not valid JSON", e);
+      }
+
+      retryCount++; // Increment retry count
+      if (retryCount === maxRetries) {
+        throw new Error("Maximum retries reached with no valid actionType");
+      }
     }
-
-    return nlAction;
+    
+    throw new Error("Failed to obtain a valid NLAction");
   }
 
   /**
   * An agent for generating the code selectors for a given page and next action.
   * @param {Object} params - The parameters for the agent.
   * @param {string} params.prompt - The system prompt.
-  * @param {OSAgentPage} params.inputPage - The input page.
+  * @param {InterfaceAgentPage} params.inputPage - The input page.
   * @param {NLAction} params.nextAction - The next action.
   * @param {number} params.maxRetries - The maximum number of retries.
   * @param {(code: string) => Promise<boolean>} params.codeEvalFunc - The function to evaluate the code.
@@ -167,7 +178,7 @@ export class OSAgentCore {
     codeEvalFunc: evalCode
   }: {
     prompt: string;
-    inputPage: OSAgentPage;
+    inputPage: InterfaceAgentPage;
     nextAction: NLAction;
     maxRetries: number;
     codeEvalFunc: (code: string) => Promise<boolean>;
@@ -213,7 +224,7 @@ export class OSAgentCore {
    * Generates code selectors for the agent.
    * @param {Object} params - The parameters for the agent.
    * @param {string} params.prompt - The system prompt.
-   * @param {OSAgentPage} params.page - The page.
+   * @param {InterfaceAgentPage} params.page - The page.
    * @param {NLAction} params.nextAction - The next action.
    * @param {string[]} [params.selectorFailures] - The selector failures (optional).
    * @returns {Promise<string[]>} - The sorted code selectors.
@@ -225,7 +236,7 @@ export class OSAgentCore {
     selectorFailures = null
   }: {
     prompt: string;
-    page: OSAgentPage;
+    page: InterfaceAgentPage;
     nextAction: NLAction;
     selectorFailures?: string[];
   }): Promise<string[]> {
@@ -277,7 +288,9 @@ export class OSAgentCore {
       const codeSelectors = JSON.parse(
         generateCodeSelectorResult.choices[0].message.content
       );
-      selectorsByRelevance = codeSelectors.selectorsByRelevance
+      selectorsByRelevance = codeSelectors.selectorsByRelevance;
+      const sorted = selectorsByRelevance.sort((a, b) => b.relevanceScore - a.relevanceScore);
+      console.log(JSON.stringify(sorted));
     } catch (e) {
       throw new Error("Parsed content is not valid JSON");
     }

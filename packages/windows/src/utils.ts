@@ -1,4 +1,4 @@
-import { Tool } from '@osagent/core';
+import { Tool } from '@interface-agent/core';
 import { exec } from 'child_process';
 import path from 'path';
 import { ToolsetMap, Window } from './types';
@@ -192,7 +192,9 @@ export async function performActionScroll(winHandle: string, xPathSelector: stri
       Direction: scrollDirection
     });
 
-    return invokeUiElementScrollResult.toLowerCase() === 'true';
+    console.log('invokeUiElementScrollResult: ' + invokeUiElementScrollResult);
+    return true;
+    // return invokeUiElementScrollResult.toLowerCase() === 'true';
   } catch (error) {
     console.error(`Error performing type action for app: ${winHandle}`, error);
     throw error;

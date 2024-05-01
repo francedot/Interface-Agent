@@ -1,7 +1,7 @@
 import { exec } from 'child_process';
 import util from 'util';
 import * as http from "http";
-import { App } from '@osagent/core';
+import { App } from '@interface-agent/core';
 import path from "path";
 
 const execPromisified = util.promisify(exec);

@@ -1,7 +1,7 @@
 {
-  "name": "@osagent/windows",
+  "name": "@interface-agent/windows",
   "version": "0.0.5",
-  "description": "Windows integration for OSAgent, enabling powerful desktop automation and testing capabilities.",
+  "description": "Windows integration for Interface Agent, enabling powerful desktop automation and testing capabilities.",
   "private": false,
   "scripts": {
     "build": "tsc && shx cp ./src/WinAutomation.psm1 ./lib/WinAutomation.psm1",
@@ -14,13 +14,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/francedot/osagent-ts"
+    "url": "https://github.com/francedot/interface-agent"
   },
   "publishConfig": {
     "access": "public"
   },
   "keywords": [
-    "osagent",
+    "InterfaceAgent",
     "win",
     "llm",
     "windows",
@@ -32,7 +32,7 @@
   "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
   "license": "MIT",
   "dependencies": {
-    "@osagent/core": "^0.0.5"
+    "@interface-agent/core": "^0.0.5"
   },
   "files": [
     "lib/"

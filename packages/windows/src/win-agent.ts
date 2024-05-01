@@ -1,29 +1,29 @@
 import {
   AzureAIInput,
   NLAction,
-  OSAgentBase,
+  InterfaceAgentBase,
   OpenAIInput,
   Tool,
   ToolsetPlan,
   ClaudeAIInput,
   QuestionAnswer,
   saveBase64ImageToFile
-} from "@osagent/core";
+} from "@interface-agent/core";
 import { sPrompt_Predict_Next_NL_Action_Visual } from "./prompts/predict-next-nl-action";
 import { WindowsActionHandler } from "./win-action-handler";
 import { sPrompt_Tools_Planner } from "./prompts/tools-planner";
 import { getActiveWindowsAsync, getAllInstalledTools, launchToolAsync } from "./utils";
-import { ToolsetMap, Window, WindowsOSAgentPage } from "./types";
+import { ToolsetMap, Window, WindowsInterfaceAgentPage } from "./types";
 import { sPrompt_Active_Windows } from "./prompts/window-detect";
-import { WindowsOSAgentSettings } from "./win-settings";
+import { WindowsInterfaceAgentSettings } from "./win-settings";
 
 /**
  * The WindowsAgent class orchestrates the process of performing and reasoning about actions on a mobile screen towards achieving a specified end goal.
  */
-export class WindowsAgent extends OSAgentBase {
+export class WindowsAgent extends InterfaceAgentBase {
   private windowsActionHandler: WindowsActionHandler;
   private toolsetMap: ToolsetMap = new Map<string, Tool>();
-  private : WindowsOSAgentSettings;
+  private : WindowsInterfaceAgentSettings;
 
   /**
    * Constructs a new WindowsAgent instance.
@@ -34,7 +34,7 @@ export class WindowsAgent extends OSAgentBase {
         organization?: string;
     }
   }) {
-    super(fields, WindowsOSAgentSettings.getInstance());
+    super(fields, WindowsInterfaceAgentSettings.getInstance());
   }
 
   public async initAsync(): Promise<void> {
@@ -68,7 +68,7 @@ export class WindowsAgent extends OSAgentBase {
     let requestClarifyingInfoQA: QuestionAnswer[] = [];
     let plan: ToolsetPlan;
     while (requestClarifyingInfo) {
-      plan = await this.osAgentCore.toolsPlanner_Agent({
+      plan = await this.InterfaceAgentCore.toolsPlanner_Agent({
         prompt: sPrompt_Tools_Planner,
         userQuery: query,
         tools: Array.from(toolsAndWindows.values()),
@@ -80,6 +80,9 @@ export class WindowsAgent extends OSAgentBase {
       if (plan.requestClarifyingInfo) {
         try {
           const requestClarifyingInfoAnswer = await this.requestClarifyingInfo(plan.requestClarifyingInfoQuestion);
+          if (requestClarifyingInfoAnswer == null || requestClarifyingInfoAnswer.length === 0) {
+            throw new Error("Clarifying info answer is empty");
+          }
           requestClarifyingInfoQA.push({
             question: plan.requestClarifyingInfoQuestion,
             answer: requestClarifyingInfoAnswer 
@@ -142,31 +145,36 @@ export class WindowsAgent extends OSAgentBase {
     const mostRelevantWindow = classifiedWindows[0];
     console.log(`Focusing on window: ${mostRelevantWindow.title}`);
 
-    let previousOSAgentPage: WindowsOSAgentPage | null = null;
-    let currentOSAgentPage = await WindowsOSAgentPage.fromUIAutomationAsync({
+    let previousInterfaceAgentPage: WindowsInterfaceAgentPage | null = null;
+    let currentInterfaceAgentPage = await WindowsInterfaceAgentPage.fromUIAutomationAsync({
       winHandle: mostRelevantWindow.handle.toString(),
       location: toolStep.tool.title,
       isVisualMode: true,
     });
 
-    // saveBase64ImageToFile(currentOSAgentPage.screens[0].base64Value);
+    // saveBase64ImageToFile(currentInterfaceAgentPage.screens[0].base64Value);
 
-    this.windowsActionHandler = new WindowsActionHandler(this.osAgentCore);
+    this.windowsActionHandler = new WindowsActionHandler(this.InterfaceAgentCore);
     const actions: NLAction[] = [];
     let requestClarifyingInfoQA: QuestionAnswer[] = [];
     while (true) {
       let nextAction: NLAction;
       try {
         const last3Actions = actions.slice(-3).map(action => this.stripUnneededFields(action));
-        nextAction = await this.osAgentCore.predictNextNLAction_Visual_Agent({
+        nextAction = await this.InterfaceAgentCore.predictNextNLAction_Visual_Agent({
           prompt: sPrompt_Predict_Next_NL_Action_Visual,
-          previousPage: previousOSAgentPage,
-          currentPage: currentOSAgentPage,
+          previousPage: previousInterfaceAgentPage,
+          currentPage: currentInterfaceAgentPage,
           toolPrompt: toolPrompt,
           previousActions: last3Actions,
           ambiguityHandlingScore: this.settings.ambiguityHandlingScore,
           requestClarifyingInfoQA: requestClarifyingInfoQA
         });
+
+        // if (!nextAction?.actionType) {
+          console.log(JSON.stringify(nextAction));
+        // }
+
         // console.log(`Revised tool prompt: ${nextAction.revisedToolPrompt}`);
         // toolPrompt = nextAction.revisedToolPrompt; // Update tool prompt for next iteration
         actions.push(nextAction);
@@ -196,6 +204,9 @@ export class WindowsAgent extends OSAgentBase {
       if (nextAction.actionType === "nop" && nextAction.requestClarifyingInfo) {
         try {
           const requestClarifyingInfoAnswer = await this.requestClarifyingInfo(nextAction.requestClarifyingInfoQuestion);
+          if (requestClarifyingInfoAnswer == null || requestClarifyingInfoAnswer.length === 0) {
+            throw new Error("Clarifying info answer is empty");
+          }
           requestClarifyingInfoQA.push({
             question: nextAction.requestClarifyingInfoQuestion,
             answer: requestClarifyingInfoAnswer 
@@ -208,21 +219,21 @@ export class WindowsAgent extends OSAgentBase {
         requestClarifyingInfoQA = null; // Reset clarifying info answer
       }
 
-      await this.windowsActionHandler.performAction(nextAction, currentOSAgentPage);
+      await this.windowsActionHandler.performAction(nextAction, currentInterfaceAgentPage);
 
-      // if (previousOSAgentPage?.screens[0]?.base64ValueWithBeforeWatermark) {
-      //   saveBase64ImageToFile(previousOSAgentPage.screens[0].base64ValueWithBeforeWatermark);
+      // if (previousInterfaceAgentPage?.screens[0]?.base64ValueWithBeforeWatermark) {
+      //   saveBase64ImageToFile(previousInterfaceAgentPage.screens[0].base64ValueWithBeforeWatermark);
       // }
-      // saveBase64ImageToFile(currentOSAgentPage.screens[0].base64ValueWithAfterWatermark);
+      // saveBase64ImageToFile(currentInterfaceAgentPage.screens[0].base64ValueWithAfterWatermark);
 
-      const nextOSAgentPage = await WindowsOSAgentPage.fromUIAutomationAsync({
+      const nextInterfaceAgentPage = await WindowsInterfaceAgentPage.fromUIAutomationAsync({
         winHandle: mostRelevantWindow.handle.toString(),
         location: toolStep.tool.title, // Set again as the id of the tool
         isVisualMode: true,
       });
 
-      previousOSAgentPage = currentOSAgentPage;
-      currentOSAgentPage = nextOSAgentPage;
+      previousInterfaceAgentPage = currentInterfaceAgentPage;
+      currentInterfaceAgentPage = nextInterfaceAgentPage;
     }
   }
 
@@ -235,8 +246,8 @@ export class WindowsAgent extends OSAgentBase {
     tool: Tool;
     activeWindows?: Window[];
   }): Promise<Window[]> {
-    const model = WindowsOSAgentSettings.getInstance().windowDetectModel;
-    const aiClient = this.osAgentCore.getClientForAIModel(model);
+    const model = WindowsInterfaceAgentSettings.getInstance().windowDetectModel;
+    const aiClient = this.InterfaceAgentCore.getClientForAIModel(model);
     const classifyActiveWindowsResult = await aiClient.generateText({
       systemPrompt: prompt,
       prompt: JSON.stringify({

@@ -1,5 +1,5 @@
 import { WindowsAgent } from "../src/win-agent";
-import { ToolsetPlan } from "@osagent/core";
+import { ToolsetPlan } from "@interface-agent/core";
 import { tPrompt_Blank_Word } from "./tasks-to-be-done/word";
 import { tPrompt_Movies_App } from "./tasks-to-be-done/movie-night";
 

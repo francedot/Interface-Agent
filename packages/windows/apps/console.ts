@@ -1,5 +1,5 @@
 import prompts from 'prompts';
-import { WindowsAgent } from '@osagent/windows';
+import { WindowsAgent } from '@interface-agent/windows';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -9,10 +9,10 @@ dotenv.config({
 });
 
 const main = async () => {
-  const osAgent = new WindowsAgent();
-  await osAgent.initAsync();
+  const iAgent = new WindowsAgent();
+  await iAgent.initAsync();
 
-  osAgent.onClarifyingInfoRequested = async (clarifyingInfo) => {
+  iAgent.onClarifyingInfoRequested = async (clarifyingInfo) => {
     const userResponse = await prompts({
       type: 'text',
       name: 'clarifyingInfoAnswer',
@@ -24,11 +24,11 @@ const main = async () => {
   const userResponse = await prompts({
     type: 'text',
     name: 'query',
-    message: 'OSAgent: your AI assistant for Windows. How can I help you today?'
+    message: 'InterfaceAgent: your AI assistant for Windows. How can I help you today?'
   });
 
   const query = userResponse.query;
-  await osAgent.runAsync({ query });
+  await iAgent.runAsync({ query });
 
   // const movieNightPlan: ToolsetPlan = {
   //   description: "A plan for a movie night: download a movie and order some pizza",
@@ -44,7 +44,7 @@ const main = async () => {
   //   ]
   // };
 
-  // const results = await osAgent.runFromPlanAsync({
+  // const results = await InterfaceAgent.runFromPlanAsync({
   //   plan: movieNightPlan
   // });
 

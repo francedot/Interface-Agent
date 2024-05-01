@@ -751,19 +751,20 @@ function Invoke-UIElementScroll {
 
     try {
         $element = Get-AutomationElementFromXPath -WindowHandle $WindowHandle -XPath $XPath
-        if ($null -eq $element) {
-            Write-Error "Unable to find element."
-            return $false
+        if ($null -ne $element) {
+            $rect = $element.Current.BoundingRectangle
+            $centerX = [int]($rect.X + $rect.Width / 2)
+            $centerY = [int]($rect.Y + $rect.Height / 2)
+
+            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($centerX, $centerY)
+            # Mouse down and up to simulate a click
+            $MOUSEEVENTF_LEFTDOWN = 0x02
+            [User32]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0) | Out-Null
+            Start-Sleep -Milliseconds 1000 # Short pause between down and up for better reliability
         }
 
-        $rect = $element.Current.BoundingRectangle
-        $centerX = [int]($rect.X + $rect.Width / 2)
-        $centerY = [int]($rect.Y + $rect.Height / 2)
-
-        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point($centerX, $centerY)
-
         # Decide scroll direction and magnitude
-        $scrollAmount = 120 # Default scroll amount for one notch of the mouse wheel
+        $scrollAmount = 120 * 3 # Scroll amount adjusted for approximately full page scroll
         if ($Direction -eq "down") {
             $scrollAmount = -1 * $scrollAmount
         }
@@ -773,7 +774,7 @@ function Invoke-UIElementScroll {
         [User32]::mouse_event($MOUSEEVENTF_WHEEL, 0, 0, $scrollAmount, 0) | Out-Null
         Start-Sleep -Milliseconds 100 # Short pause for better reliability
 
-        Write-Host "Scroll $Direction invoked at $centerX, $centerY."
+        # Write-Host "Full page scroll $Direction invoked at $centerX, $centerY."
         return $true
     }
     catch {

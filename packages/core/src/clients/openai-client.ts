@@ -140,6 +140,7 @@ export class OpenAIClient implements AIClient {
       },
       (error) => {
         return this.isOpenAI && error && error.message && error.message.includes('Rate limit reached') ||
+         this.isOpenAI && error && error.message && error.message.includes('The server had an error processing your request.') ||
           (error.code && error.code === '429')
       },
       10, // Max retries
@@ -291,6 +292,7 @@ export class OpenAIClient implements AIClient {
       },
       (error) => {
         return this.isOpenAI && error && error.message && error.message.includes('Rate limit reached') ||
+          this.isOpenAI && error && error.message && error.message.includes('The server had an error processing your request.') ||
           (error.code && error.code === '429')
       },
       5, // Max retries
