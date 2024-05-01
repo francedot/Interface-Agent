@@ -1,6 +1,7 @@
-# <img align="center" src="https://github.com/francedot/InterfaceAgent/blob/main/img/logo.png?raw=true" width="38"> InterfaceAgent-iOS
+# <img align="center" src="../../img/logo.png" width="27"> Agent-iOS
 
-Explore how to build iOS AI agents with InterfaceAgent-iOS.
+
+Explore how to build iOS AI agents with **InterfaceAgent-iOS**.
 
 ## 💻 Getting Started
 
@@ -21,12 +22,12 @@ You can choose to either clone the repository or use npm, yarn, or pnpm to insta
 
 #### npm:
 ```bash
-npm install @InterfaceAgent/ios
+npm install @interface-agent/ios
 ```
 
 #### Yarn:
 ```bash
-yarn add @InterfaceAgent/ios
+yarn add @interface-agent/ios
 ```
 
 #### 2. Go-iOS Setup
@@ -140,25 +141,26 @@ appium
 With the Appium Server and WDA running, we can finally run our first AI-powered iOS agent. Let's see how to:
 
 ```typescript
-import { iInterfaceAgent } from "@InterfaceAgent/ios";
+import { iAgent } from "@interface-agent/ios";
 
-const iInterfaceAgent = new iInterfaceAgent({
+const iAgent = new iOSAgent({
     // openAIApiKey: "YOUR_OPEN_AI_API_KEY", // Optional if set through process.env.OPEN_AI_API_KEY
     appiumBaseUrl: 'http://127.0.0.1',
     appiumPort: 4723,
     iOSVersion: "17.3.0",
-    deviceUdid: "00008030-00120DA4110A802E"
+    deviceUdid: "<YOUR_UDID>"
 });
 
 const fitnessPlannerQuery = "Help me run a 30-day fitness challenge.";
-await iInterfaceAgent.runAsync({
+await iAgent.runAsync({
     query: fitnessPlannerQuery
 });
 ```
 
 <p align="center">
-  <img align="center" width="1280" src="https://github.com/francedot/InterfaceAgent-TS/assets/11706033/bdc79ec6-c05c-4fb4-a01a-0a4b3b802ce9">
+  <img align="center" width="1280" src="https://github.com/francedot/NavAIGuide-TS/assets/11706033/bdc79ec6-c05c-4fb4-a01a-0a4b3b802ce9" alt="30 days of fitness demo">
 </p>
+
 
 ## What's What?
 

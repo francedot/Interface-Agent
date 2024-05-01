@@ -17,17 +17,19 @@
 
 Welcome to **InterfaceAgent**, a multi-modal agentic framework to build system and interface agent capable of controlling mobile and desktop features and apps.
 
-Here's how InterfaceAgent stands out:
+Here are **InterfaceAgent** main capabilities:
 
 - **Planning & Goal Refinement**: the agent can build multi-steps plan across apps to fullfill user requests, and reiterate based on user feedbacks during the evaluation phase. 
 
 - **Action Prediction (Pure Visual / Textual / Set-of-Mark Visual Prompting)**: Use visual coordinate-based approach, pure DOM textual, or set-of-marking for increased accuracy in determining the next probable action.
 
-- **Mixture of Models:** Compatible with GPT-4V and many more vision models, InterfaceAgent excels at identifying the next steps directly from page screenshots.
+- **Mixture of Models:** Compatible with GPT-4V and Claude models, InterfaceAgent excels at identifying the next steps directly from page screenshots.
 
 - **Resilient Error Handling:** Understanding that errors are part of AI Agents, InterfaceAgent features a built-in retry mechanism with exponential backoff, adeptly navigating through transient failures to ensure the Agent can move forward.
 
-**InterfaceAgent Agents** extend the core toolkit with advanced automation solutions:
+
+**InterfaceAgent** OS specific agents extend the core toolkit with advanced automation for the target platform:
+
 - **Preview of iOS Agents:** Explore how your AI Agents can gain access to the ecosystem of apps and functionalities on your iOS device.
 - **Preview of Windows Agents:** Explore how your AI Agents can gain access to the ecosystem of apps and functionalities on your Windows 11 device.
 - **Preview of Appium Android Agents (Coming soon):** Explore how your AI Agents can gain access to the ecosystem of apps and functionalities on your Android device.
@@ -41,7 +43,7 @@ You can choose to either clone the repository or use npm, yarn, or pnpm to insta
 - For iOS, see [installation steps](./packages/ios/README.md).
 - For Windows, see [installation steps](./packages/windows/README.md).
 
-## Demos
+## 🎬 Demos
 
 ### Windows
 
@@ -70,7 +72,7 @@ User Query: Help me prepare for a 30 days of fitness challenge
 
 ## 🚀 Challenges and Focus
 
-Project InterfaceAgent continues to face challenges in long-horizon planning and selector inference accuracy. The current focus is on enhancing the stability of InterfaceAgent agents.
+InterfaceAgent continues to face challenges in long-horizon planning and selector inference accuracy. The current focus is on enhancing the stability of InterfaceAgent agents.
 
 ## 🤓 Contributing
 
