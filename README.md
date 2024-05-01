@@ -15,20 +15,19 @@
 
 # 🤔 What is InterfaceAgent?
 
-Welcome to **InterfaceAgent**, a multi-modal agentic framework to build system and interface agent capable of controlling mobile and desktop features and apps.
+Welcome to **InterfaceAgent**, a versatile framework designed to create system and interface agents capable of managing mobile and desktop applications and features.
 
-Here are **InterfaceAgent** main capabilities:
+Here are the key capabilities of **InterfaceAgent**:
 
-- **Planning & Goal Refinement**: the agent can build multi-steps plan across apps to fullfill user requests, and reiterate based on user feedbacks during the evaluation phase. 
+- **Planning & Goal Refinement**: The agent is capable of constructing multi-step plans across various applications to fulfill user requests. It can also adapt and refine these plans based on user feedback during the evaluation phase.
 
-- **Action Prediction (Pure Visual / Textual / Set-of-Mark Visual Prompting)**: Use visual coordinate-based approach, pure DOM textual, or set-of-marking for increased accuracy in determining the next probable action.
+- **Action Prediction (Pure Visual / Textual / Set-of-Mark Visual Prompting)**: InterfaceAgent employs a visual coordinate-based approach, pure DOM textual analysis, or set-of-marking to enhance the accuracy of predicting the next likely action.
 
-- **Mixture of Models:** Compatible with GPT-4V and Claude models, InterfaceAgent excels at identifying the next steps directly from page screenshots.
+- **Mixture of Models**: InterfaceAgent is compatible with both GPT-4V and Claude models, excelling in determining the subsequent steps directly from page screenshots.
 
-- **Resilient Error Handling:** Understanding that errors are part of AI Agents, InterfaceAgent features a built-in retry mechanism with exponential backoff, adeptly navigating through transient failures to ensure the Agent can move forward.
+- **Resilient Error Handling**: Recognizing that errors are an inherent part of AI Agents, InterfaceAgent incorporates a robust retry mechanism with exponential backoff. This allows it to skillfully navigate through temporary failures, ensuring the Agent's progress is uninterrupted.
 
-
-**InterfaceAgent** OS specific agents extend the core toolkit with advanced automation for the target platform:
+**InterfaceAgent** OS-specific agents extend the core toolkit with advanced automation for the target platform:
 
 - **Preview of iOS Agents:** Explore how your AI Agents can gain access to the ecosystem of apps and functionalities on your iOS device.
 - **Preview of Windows Agents:** Explore how your AI Agents can gain access to the ecosystem of apps and functionalities on your Windows 11 device.
