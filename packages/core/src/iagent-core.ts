@@ -289,8 +289,8 @@ export class InterfaceAgentCore {
         generateCodeSelectorResult.choices[0].message.content
       );
       selectorsByRelevance = codeSelectors.selectorsByRelevance;
-      const sorted = selectorsByRelevance.sort((a, b) => b.relevanceScore - a.relevanceScore);
-      console.log(JSON.stringify(sorted));
+      selectorsByRelevance = selectorsByRelevance.sort((a, b) => b.relevanceScore - a.relevanceScore);
+      // console.log(JSON.stringify(sorted));
     } catch (e) {
       throw new Error("Parsed content is not valid JSON");
     }

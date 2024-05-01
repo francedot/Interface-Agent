@@ -93,7 +93,7 @@ export class WindowsAgent extends InterfaceAgentBase {
       }
 
       if (plan.steps == null || plan.steps.length === 0) {
-        // throw new Error("No steps were generated in the plan.");
+        throw new Error("No steps were generated in the plan.");
         continue;
       }
     }
@@ -152,6 +152,7 @@ export class WindowsAgent extends InterfaceAgentBase {
       isVisualMode: true,
     });
 
+    // TO debug the before and after watermark images
     // saveBase64ImageToFile(currentInterfaceAgentPage.screens[0].base64Value);
 
     this.windowsActionHandler = new WindowsActionHandler(this.InterfaceAgentCore);
@@ -171,12 +172,6 @@ export class WindowsAgent extends InterfaceAgentBase {
           requestClarifyingInfoQA: requestClarifyingInfoQA
         });
 
-        // if (!nextAction?.actionType) {
-          console.log(JSON.stringify(nextAction));
-        // }
-
-        // console.log(`Revised tool prompt: ${nextAction.revisedToolPrompt}`);
-        // toolPrompt = nextAction.revisedToolPrompt; // Update tool prompt for next iteration
         actions.push(nextAction);
       }
       catch (error) {
@@ -221,6 +216,7 @@ export class WindowsAgent extends InterfaceAgentBase {
 
       await this.windowsActionHandler.performAction(nextAction, currentInterfaceAgentPage);
 
+      // TO debug the before and after watermark images
       // if (previousInterfaceAgentPage?.screens[0]?.base64ValueWithBeforeWatermark) {
       //   saveBase64ImageToFile(previousInterfaceAgentPage.screens[0].base64ValueWithBeforeWatermark);
       // }
