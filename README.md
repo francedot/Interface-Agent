@@ -41,6 +41,33 @@ You can choose to either clone the repository or use npm, yarn, or pnpm to insta
 - For iOS, see [installation steps](./packages/ios/README.md).
 - For Windows, see [installation steps](./packages/windows/README.md).
 
+## Demos
+
+### Windows
+
+```bash
+1) User Query: Help me download an app named EdgeTile
+```
+<p align="center">
+  <img align="center" width="1280" src="https://github.com/francedot/OS-Agent/assets/11706033/676218ad-c6db-4ada-8db2-72153131ac83" alt="EdgeTile demo">
+</p>
+
+```bash
+2) User Query: Dropshipping products on Tiktok
+```
+<p align="center">
+  <img align="center" width="1280" src="https://github.com/francedot/OS-Agent/assets/11706033/c57db0e4-cc5c-42db-9f1b-fb9bd0a1fb4c" alt="TikTok demo">
+</p>
+
+### iOS
+
+```bash
+User Query: Help me prepare for a 30 days of fitness challenge
+```
+<p align="center">
+  <img align="center" width="1280" src="https://github.com/francedot/NavAIGuide-TS/assets/11706033/bdc79ec6-c05c-4fb4-a01a-0a4b3b802ce9" alt="30 days of fitness demo">
+</p>
+
 ## 🚀 Challenges and Focus
 
 Project InterfaceAgent continues to face challenges in long-horizon planning and selector inference accuracy. The current focus is on enhancing the stability of InterfaceAgent agents.
