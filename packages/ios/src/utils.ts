@@ -1,7 +1,7 @@
 import { exec } from 'child_process';
 import util from 'util';
 import * as http from "http";
-import { App } from '@navaiguide/core';
+import { App } from '@interface-agent/core';
 import path from "path";
 
 const execPromisified = util.promisify(exec);
@@ -36,7 +36,7 @@ export async function getInstalledApps(): Promise<App[]> {
  * @param appId - The ID of the app to activate.
  * @returns {Promise<void>} A promise that resolves when the app is activated.
  */
-export async function navigateToAppAsync(wdioClient: WebdriverIO.Browser, appId: string): Promise<void> {
+export async function launchAppAsync(wdioClient: WebdriverIO.Browser, appId: string): Promise<void> {
   return wdioClient.activateApp(appId);
 }
 

@@ -1,5 +1,5 @@
 {
-  "name": "navaiguide",
+  "name": "interface-agent",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -20,9 +20,12 @@
     "lint-staged": "^15.2.1",
     "mocha": "^10.3.0",
     "prettier": "^3.2.4",
+    "shx": "^0.3.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.3.3"
   },
-  "dependencies": {}
+  "dependencies": {
+    "prompts": "^2.4.2"
+  }
 }

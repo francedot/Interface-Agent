@@ -1,20 +1,20 @@
 import {
   AzureAIInput,
   NLAction,
-  NavAIGuideBaseAgent,
+  InterfaceAgentBaseAgent,
   OpenAIInput,
-} from "@navaiguide/core";
+} from "@interface-agent/core";
 import { remote } from 'webdriverio';
-import { getInstalledApps, navigateToAppAsync, isViewKeyboardVisible, isViewScrollable } from "./utils";
-import { AppiumiOSNavAIGuidePage } from "./types";
+import { getInstalledApps, launchAppAsync, isViewKeyboardVisible, isViewScrollable } from "./utils";
+import { AppiumiOSInterfaceAgentPage } from "./types";
 import { sPrompt_Predict_Next_NL_Action } from "./prompts/predict-next-nl-action";
 import { iOSActionHandler } from "./ios-action-handler";
 import { sPrompt_App_Planner } from "./prompts/planner-apps";
 
 /**
- * The iOSAgent class orchestrates the process of performing and reasoning about actions on a mobile screen towards achieving a specified end goal.
+ * The iInterfaceAgent class orchestrates the process of performing and reasoning about actions on a mobile screen towards achieving a specified end goal.
  */
-export class iOSAgent extends NavAIGuideBaseAgent {
+export class iInterfaceAgent extends InterfaceAgentBaseAgent {
   private wdioClient: WebdriverIO.Browser;
   private readonly appiumBaseUrl: string;
   private readonly appiumPort: number;
@@ -23,7 +23,7 @@ export class iOSAgent extends NavAIGuideBaseAgent {
   private iOSActionHandler: iOSActionHandler;
 
   /**
-   * Constructs a new iOSAgent instance.
+   * Constructs a new iInterfaceAgent instance.
    * @param fields - Configuration fields including OpenAI and AzureAI inputs and Appium configuration.
    */
   constructor(
@@ -59,10 +59,10 @@ export class iOSAgent extends NavAIGuideBaseAgent {
     const apps = await getInstalledApps();
     console.log(`Found ${apps.length} installed apps: ${apps.map(app => app.title).join("\n")}`);
 
-    const appsPlan = await this.navAIGuide.startTaskPlanner_Agent({
+    const appsPlan = await this.InterfaceAgent.startTaskPlanner_Agent({
       prompt: sPrompt_App_Planner,
       userQuery: query,
-      appsSource: apps,
+      appsSource: apps.map(app => app.title),
     });
 
     console.log(`Generated plan with ${appsPlan.steps.length} steps: ${appsPlan.description}`);
@@ -78,28 +78,28 @@ export class iOSAgent extends NavAIGuideBaseAgent {
   private async runAppStepAsync(appStep: { appId: string; appEndGoal: string }): Promise<string[][]> {
 
     console.log(`Starting at app: ${appStep.appId}`);
-    await navigateToAppAsync(this.wdioClient, appStep.appId);
+    await launchAppAsync(this.wdioClient, appStep.appId);
 
     await new Promise(resolve => setTimeout(resolve, 6000));
 
-    let previousNavAIGuidePage: AppiumiOSNavAIGuidePage | null = null;
-    let currentNavAIGuidePage = await AppiumiOSNavAIGuidePage.fromAppiumAsync({
+    let previousInterfaceAgentPage: AppiumiOSInterfaceAgentPage | null = null;
+    let currentInterfaceAgentPage = await AppiumiOSInterfaceAgentPage.fromAppiumAsync({
       wdioClient: this.wdioClient,
       location: appStep.appId
     });
 
-    // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
+    // saveBase64ImageToFile(currentInterfaceAgentPage.screens[0].base64Value);
 
-    this.iOSActionHandler = new iOSActionHandler(this.wdioClient, this.navAIGuide);
+    this.iOSActionHandler = new iOSActionHandler(this.wdioClient, this.InterfaceAgent);
     const actions: NLAction[] = [];
     while (true) {
-      const nextAction = await this.navAIGuide.predictNextNLAction_Visual_Agent({
+      const nextAction = await this.InterfaceAgent.predictNextNLAction_Visual_Agent({
         prompt: sPrompt_Predict_Next_NL_Action,
-        previousPage: previousNavAIGuidePage,
-        currentPage: currentNavAIGuidePage,
+        previousPage: previousInterfaceAgentPage,
+        currentPage: currentInterfaceAgentPage,
         endGoal: appStep.appEndGoal,
-        keyboardVisible: isViewKeyboardVisible(currentNavAIGuidePage.domContent),
-        scrollable: isViewScrollable(currentNavAIGuidePage.domContent),
+        keyboardVisible: isViewKeyboardVisible(currentInterfaceAgentPage.domContent),
+        scrollable: isViewScrollable(currentInterfaceAgentPage.domContent),
         previousActions: actions,
       });
 
@@ -115,19 +115,19 @@ export class iOSAgent extends NavAIGuideBaseAgent {
       console.log(`Predicted next probable action: ${nextAction.actionDescription}`);
       actions.push(nextAction);
 
-      await this.iOSActionHandler.performAction(nextAction, currentNavAIGuidePage);
+      await this.iOSActionHandler.performAction(nextAction, currentInterfaceAgentPage);
 
       // Delay for a few seconds to allow the action to take effect
       await new Promise(resolve => setTimeout(resolve, 4000));
-      // saveBase64ImageToFile(currentNavAIGuidePage.screens[0].base64Value);
+      // saveBase64ImageToFile(currentInterfaceAgentPage.screens[0].base64Value);
 
-      const nextNavAIGuidePage = await AppiumiOSNavAIGuidePage.fromAppiumAsync({
+      const nextInterfaceAgentPage = await AppiumiOSInterfaceAgentPage.fromAppiumAsync({
         wdioClient: this.wdioClient,
         location: appStep.appId // Set again as the id of the app
       });
 
-      previousNavAIGuidePage = currentNavAIGuidePage;
-      currentNavAIGuidePage = nextNavAIGuidePage;
+      previousInterfaceAgentPage = currentInterfaceAgentPage;
+      currentInterfaceAgentPage = nextInterfaceAgentPage;
     }
   }
 

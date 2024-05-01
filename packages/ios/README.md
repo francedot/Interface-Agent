@@ -1,6 +1,7 @@
-# <img align="center" src="https://github.com/francedot/NavAIGuide/blob/main/img/logo.png?raw=true" width="38"> NavAIGuide-iOS
+# <img align="center" src="../../img/logo.png" width="27"> Agent-iOS
 
-Explore how to build iOS AI agents with NavAIGuide-iOS.
+
+Explore how to build iOS AI agents with **InterfaceAgent-iOS**.
 
 ## 💻 Getting Started
 
@@ -15,23 +16,23 @@ Explore how to build iOS AI agents with NavAIGuide-iOS.
 
 ### Steps
 
-#### 1. ⚡️ Install NavAIGuide-iOS
+#### 1. ⚡️ Install InterfaceAgent-iOS
 
-You can choose to either clone the repository or use npm, yarn, or pnpm to install NavAIGuide.
+You can choose to either clone the repository or use npm, yarn, or pnpm to install InterfaceAgent.
 
 #### npm:
 ```bash
-npm install @navaiguide/ios
+npm install @interface-agent/ios
 ```
 
 #### Yarn:
 ```bash
-yarn add @navaiguide/ios
+yarn add @interface-agent/ios
 ```
 
 #### 2. Go-iOS Setup
 
-Go-iOS is required for NavAIGuide to list apps and start a pre-installed WDA Runner on the target device. If your device is running iOS 17, support for waking up the WDA Runner is experimental, and npm packages for go-ios are not available. Therefore, you need to install the latest version from the [ios-17 branch](https://github.com/danielpaulus/go-ios/tree/ios-17) and manually build an executable, which requires installing Go build tools.
+Go-iOS is required for InterfaceAgent to list apps and start a pre-installed WDA Runner on the target device. If your device is running iOS 17, support for waking up the WDA Runner is experimental, and npm packages for go-ios are not available. Therefore, you need to install the latest version from the [ios-17 branch](https://github.com/danielpaulus/go-ios/tree/ios-17) and manually build an executable, which requires installing Go build tools.
 
 ```bash
 # Install Go build tools on macOS
@@ -46,7 +47,7 @@ cd packages/ios
 npx run build-go-ios
 
 # If installed through the npm package:
-npm explore @navaiguide/ios -- npm run build-go-ios
+npm explore @interface-agent/ios -- npm run build-go-ios
 ```
 
 #### 3. Appium
@@ -124,7 +125,7 @@ Next, let's exit UI Automation mode by holding the Volume Up and Down buttons si
 npm run run-wda -- --WDA_BUNDLE_ID=com.example.wdabundleid --WDA_TEST_RUNNER_BUNDLE_ID=com.example.wdabundleid --DEVICE_UDID=12345
 
 # If installed through the npm package:
-npm explore @navaiguide/ios -- npm run run-wda -- --WDA_BUNDLE_ID=com.example.wdabundleid --WDA_TEST_RUNNER_BUNDLE_ID=com.example.wdabundleid --DEVICE_UDID=12345
+npm explore @interface-agent/ios -- npm run run-wda -- --WDA_BUNDLE_ID=com.example.wdabundleid --WDA_TEST_RUNNER_BUNDLE_ID=com.example.wdabundleid --DEVICE_UDID=12345
 ```
 
 If successful, you should see the device entering UI Automation mode again. What's changed? Using go-ios, it will technically make it possible to control the device from Linux and, soon, Windows (see the latest go-ios release).
@@ -140,25 +141,28 @@ appium
 With the Appium Server and WDA running, we can finally run our first AI-powered iOS agent. Let's see how to:
 
 ```typescript
-import { iOSAgent } from "@navaiguide/ios";
+import { iAgent } from "@interface-agent/ios";
 
-const iosAgent = new iOSAgent({
+const iAgent = new iOSAgent({
     // openAIApiKey: "YOUR_OPEN_AI_API_KEY", // Optional if set through process.env.OPEN_AI_API_KEY
     appiumBaseUrl: 'http://127.0.0.1',
     appiumPort: 4723,
     iOSVersion: "17.3.0",
-    deviceUdid: "00008030-00120DA4110A802E"
+    deviceUdid: "<YOUR_UDID>"
 });
 
 const fitnessPlannerQuery = "Help me run a 30-day fitness challenge.";
-await iosAgent.runAsync({
+await iAgent.runAsync({
     query: fitnessPlannerQuery
 });
 ```
 
+## 🎬 Demos
+
 <p align="center">
-  <img align="center" width="1280" src="https://github.com/francedot/NavAIGuide-TS/assets/11706033/bdc79ec6-c05c-4fb4-a01a-0a4b3b802ce9">
+  <img align="center" width="1280" src="https://github.com/francedot/NavAIGuide-TS/assets/11706033/bdc79ec6-c05c-4fb4-a01a-0a4b3b802ce9" alt="30 days of fitness demo">
 </p>
+
 
 ## What's What?
 

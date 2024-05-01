@@ -1,93 +1,121 @@
-import { getImageDimensionsFromBase64, insertTextIntoImage, reduceHtmlDomWithChunks } from "./utils";
+import {  insertTextIntoImage } from "./utils";
+
+export type AIModelEnum = ClaudeAIEnum | OpenAIEnum;
+
+/**
+ * Enum representing different ClaudeAI models.
+ */
+export enum ClaudeAIEnum {
+  CLAUDE_3_HAIKU = "CLAUDE_3_HAIKU",
+  CLAUDE_3_OPUS = "CLAUDE_3_OPUS",
+  CLAUDE_3_SONNET = "CLAUDE_3_SONNET",
+}
 
 /**
  * Enum representing different OpenAI models.
  */
 export enum OpenAIEnum {
-  GPT35_TURBO = "gpt-3.5-turbo",
-  GPT35_TURBO_16K = "gpt-3.5-turbo-16k",
-  GPT4_TURBO = "gpt-4-1106-preview",
-  GPT4_TURBO_VISION = "gpt-4-vision-preview",
+  GPT35_TURBO = "GPT35_TURBO",
+  GPT35_TURBO_16K = "GPT35_TURBO_16K",
+  GPT4_TURBO = "GPT4_TURBO",
+  GPT4_TURBO_VISION = "GPT4_TURBO_VISION",
 }
 
 /**
  * Class representing an OpenAI model.
  */
-export class OpenAIModel {
+export class AIModel {
+
+  constructor({ key, modelType, values }: { key: string, modelType: "OpenAI" | "ClaudeAI", values: string[] }) {
+    this.key = key;
+    this.modelType = modelType;
+    this.values = values;
+  }
+  
   /**
-   * The key of the OpenAI model.
+   * The key of the AIModel model.
    */
   key: string;
-  /**
-   * The value of the Azure AI model.
-   */
-  azureAIValue?: string;
-  /**
-   * The value of the OpenAI model.
-   */
-  openAIValue?: string;
 
   /**
-   * Constructs a new instance of the OpenAIModel class.
-   * @param key - The key of the model.
-   * @param azureAIValue - The value of the Azure AI model.
-   * @param openAIValue - The value of the OpenAI model.
+   * The type of the AIModel model.
    */
-  constructor({
-    key,
-    azureAIValue,
-    openAIValue,
-  }: {
-    key: string;
-    azureAIValue: string;
-    openAIValue: string;
-  }) {
-    this.key = key;
-    this.azureAIValue = azureAIValue;
-    this.openAIValue = openAIValue;
-  }
+  modelType: "OpenAI" | "ClaudeAI";
+
+  /**
+ * The values of the AIModel model.
+ */
+  values: string[];
 }
 
 /**
- * Class representing a collection of OpenAI models.
+ * Class representing a collection of AI models.
  */
-export class OpenAIModels {
+export class AIModels {
   private constructor() { }
 
   /**
-   * A dictionary of OpenAI models.
+   * A dictionary of AI models.
    * The key is the model key, and the value is an instance of OpenAIModel.
    */
-  static models: { [key: string]: OpenAIModel } = {
-    [OpenAIEnum.GPT35_TURBO]: new OpenAIModel({
+  static models: { [key: string]: AIModel } = {
+    // OpenAI Models
+    [OpenAIEnum.GPT35_TURBO]: new AIModel({
       key: OpenAIEnum.GPT35_TURBO,
-      azureAIValue: "SET_BY_CALLER",
-      openAIValue: "gpt-3.5-turbo-1106",
+      modelType: "OpenAI",
+      values: ["SET_BY_CALLER", "gpt-3.5-turbo-1106"]
     }),
-    [OpenAIEnum.GPT35_TURBO_16K]: new OpenAIModel({
+    [OpenAIEnum.GPT35_TURBO_16K]: new AIModel({
       key: OpenAIEnum.GPT35_TURBO_16K,
-      azureAIValue: "SET_BY_CALLER",
-      openAIValue: "gpt-3.5-turbo-16k",
+      modelType: "OpenAI",
+      values: ["SET_BY_CALLER", "gpt-3.5-turbo-16k"]
     }),
-    [OpenAIEnum.GPT4_TURBO]: new OpenAIModel({
-      key: OpenAIEnum.GPT4_TURBO_VISION,
-      azureAIValue: "SET_BY_CALLER",
-      openAIValue: "gpt-4-1106-preview",
+    [OpenAIEnum.GPT4_TURBO]: new AIModel({
+      key: OpenAIEnum.GPT4_TURBO,
+      modelType: "OpenAI",
+      values: ["SET_BY_CALLER", "gpt-4-1106-preview"]
     }),
-    [OpenAIEnum.GPT4_TURBO_VISION]: new OpenAIModel({
+    [OpenAIEnum.GPT4_TURBO_VISION]: new AIModel({
       key: OpenAIEnum.GPT4_TURBO_VISION,
-      azureAIValue: "SET_BY_CALLER",
-      openAIValue: "gpt-4-vision-preview",
+      modelType: "OpenAI",
+      values: ["SET_BY_CALLER", "gpt-4-vision-preview"]
+      // values: ["SET_BY_CALLER", "gpt-4-turbo-2024-04-09"]
+      // 
+    }),
+    // ClaudeAI Models
+    [ClaudeAIEnum.CLAUDE_3_HAIKU]: new AIModel({
+      key: ClaudeAIEnum.CLAUDE_3_HAIKU,
+      modelType: "ClaudeAI",
+      values: ["claude-3-haiku-20240307"],
+    }),
+    [ClaudeAIEnum.CLAUDE_3_SONNET]: new AIModel({
+      key: ClaudeAIEnum.CLAUDE_3_SONNET,
+      modelType: "ClaudeAI",
+      values: ["claude-3-sonnet-20240229"],
+    }),
+    [ClaudeAIEnum.CLAUDE_3_OPUS]: new AIModel({
+      key: ClaudeAIEnum.CLAUDE_3_OPUS,
+      modelType: "ClaudeAI",
+      values: ["claude-3-opus-20240229"],
     }),
   };
 
   /**
-   * Retrieves the OpenAI model with the specified key.
+   * Retrieves the AI model with the specified key.
    * @param key - The key of the model to retrieve.
    * @returns The OpenAIModel instance corresponding to the specified key.
    */
-  static getModel(key: string): OpenAIModel {
-    return OpenAIModels.models[key];
+  static getModelFromEnumValue(aiModel: AIModelEnum): AIModel {
+    // for (const key in AIModels.models) {
+    //   console.log(key);
+    // }
+
+    return AIModels.models[aiModel];
+  }
+
+  static getModel(aiModelName: string): AIModel {
+    // const enumValue = getAIModelEnumValueFromKey(aiModelName);
+    return AIModels.models[aiModelName];
   }
 }
 
@@ -147,6 +175,17 @@ export declare interface AzureAIInput {
 }
 
 /**
+ * Interface representing the input for ClaudeAI.
+ */
+export declare interface ClaudeAIInput {
+  /**
+   * The API key for ClaudeAI.
+   */
+  claudeAIApiKey?: string;
+}
+
+
+/**
  * Interface representing a message in the OpenAI response.
  */
 export interface Message {
@@ -164,7 +203,7 @@ export interface Error {
 /**
  * Interface representing the OpenAI response.
  */
-export interface OpenAIResponse {
+export interface AIResponse {
   id: string;
   object: string;
   created: number;
@@ -172,10 +211,10 @@ export interface OpenAIResponse {
   choices: Choice[];
   usage: Usage;
   system_fingerprint: null;
-  error: OpenAIError;
+  error: AIError;
 }
 
-export class OpenAIError extends Error {
+export class AIError extends Error {
   code: string;
 
   constructor(message: string, code: string) {
@@ -212,23 +251,24 @@ export interface StartTask {
 }
 
 /**
- * Class representing a NavAIGuide page as input to NavAIGuide.
+ * Class representing a InterfaceAgent page as input to InterfaceAgent.
  * @property {string} location - The location of the page.
  * @property {PageScreen[]} screens - The screens of the page.
  * @property {string} domContent - The DOM content of the page.
  * @property {string} reducedDomContent - The reduced DOM content of the page.
  * @property {string[]} reducedDomChunks - The reduced DOM chunks of the page.
  */
-export class NavAIGuidePage {
+export class InterfaceAgentPage {
   location: string;
   screens: PageScreen[];
   domContent: string;
   reducedDomContent: string;
   reducedDomChunks: string[];
+  minimizedDomContent?: string;
 
   /**
-   * Creates a NavAIGuidePage instance.
-   * @param {Object} params - The parameters for the NavAIGuidePage.
+   * Creates a InterfaceAgentPage instance.
+   * @param {Object} params - The parameters for the InterfaceAgentPage.
    * @param {string} params.location - The location of the page.
    * @param {PageScreen[]} params.screens - The screens of the page.
    * @param {string} params.domContent - The DOM content of the page.
@@ -240,26 +280,29 @@ export class NavAIGuidePage {
     screens,
     domContent,
     reducedDomContent,
-    reducedDomChunks
+    reducedDomChunks,
+    minimizedDomContent
   }: {
     location: string;
     screens: PageScreen[];
     domContent: string;
     reducedDomContent: string;
     reducedDomChunks: string[];
+    minimizedDomContent?: string;
   }) {
     this.location = location;
     this.screens = screens;
     this.domContent = domContent;
     this.reducedDomContent = reducedDomContent;
     this.reducedDomChunks = reducedDomChunks;
+    this.minimizedDomContent = minimizedDomContent;
   }
 
   /**
    * Draws a watermark on the screens of the page.
-   * @returns {Promise<NavAIGuidePage>} - The page with watermarked screens.
+   * @returns {Promise<InterfaceAgentPage>} - The page with watermarked screens.
    */
-  public async drawBeforeWatermarkAsync(): Promise<NavAIGuidePage> {
+  public async drawBeforeWatermarkAsync(): Promise<InterfaceAgentPage> {
 
     // Watermark the image with a BEFORE watermark
     await Promise.all(this.screens.map(async (screen) => {
@@ -272,9 +315,9 @@ export class NavAIGuidePage {
 
   /**
    * Draws a watermark on the screens of the page.
-   * @returns {Promise<NavAIGuidePage>} - The page with watermarked screens.
+   * @returns {Promise<InterfaceAgentPage>} - The page with watermarked screens.
    */
-  public async drawAfterWatermarkAsync(): Promise<NavAIGuidePage> {
+  public async drawAfterWatermarkAsync(): Promise<InterfaceAgentPage> {
 
     // Watermark the image with a AFTER watermark
     await Promise.all(this.screens.map(async (screen) => {
@@ -288,7 +331,7 @@ export class NavAIGuidePage {
 }
 
 /**
- * Interface representing a NavAIGuide Page Screen.
+ * Interface representing a InterfaceAgent Page Screen.
  * This includes the metadata and the screenshot data in base64 format.
  * @property {string} metadata - The metadata of the screen.
  * @property {string} base64Value - The screenshot data in base64 format.
@@ -322,45 +365,55 @@ export type BoundingBox = [number, number, number, number]; // [topLeftX, topLef
 /**
  * Type alias for the type of actions available.
  */
-export type ActionType = 'tap' | 'type' | 'scroll';
+export type ActionType = 'tap' | 'type' | 'scroll' | 'nop';
 
 /**
- * Interface representing a source application.
+ * Interface representing a local tool.
  * 
  * @property {string} id - The unique identifier of the application.
  * @property {string} title - The title of the application.
  * @property {string} description - A description of the application.
+ * @property {string} path - The path to the application, if applicable.
  */
-export interface App {
+export interface Tool {
   id: string;
   title: string;
   description?: string;
+  path?: string;
+  metadata?: string[];
+  lastAccessTime?: Date;
+  isWindowRef?: boolean;
 }
 
 /**
- * Interface representing an Apps Plan.
- * 
- * @property {string} description - The description of the plan.
- * @property {string} steps - A sequence of steps to be performed in the plan.
- */
-export interface AppsPlan {
-  description: string;
-  steps: AppPlanStep[];
-}
-
-/**
- * Interface representing a Apps Plan Step.
+ * Interface representing a Tools Plan Step.
  * 
  * @property {string} appId - The application id.
  * @property {string} appEndGoal - The end goal to pursue in the application.
  */
-export interface AppPlanStep {
-  appId: string;
-  appEndGoal: string;
+export interface ToolStep {
+  toolId: string;
+  toolPrompt: string;
+}
+
+export type Toolset = Tool[];
+export type ToolSteps = ToolStep[];
+
+/**
+ * Interface representing a Tools Plan.
+ * 
+ * @property {string} description - The description of the plan.
+ * @property {string} steps - A sequence of steps to be performed in the plan.
+ */
+export interface ToolsetPlan {
+  requestClarifyingInfo?: boolean;
+  requestClarifyingInfoQuestion?: string;
+  description: string;
+  steps: ToolSteps;
 }
 
 /**
- * Interface representing a NavAIGuide Action in Natural Language.
+ * Interface representing a InterfaceAgent Action in Natural Language.
  * @property {boolean | null} previousActionSuccess - Indicates if the previous action was successful.
  * @property {string} previousActionSuccessExplanation - Explanation of the success or failure of the previous action.
  * @property {boolean} endGoalMet - Indicates if the end goal was met.
@@ -377,17 +430,22 @@ export interface AppPlanStep {
 export interface NLAction {
   previousActionSuccess: boolean | null;
   previousActionSuccessExplanation: string;
-  endGoalMet: boolean;
-  endGoalMetExplanation: string;
-  actionType: ActionType;
+  toolPromptCompleted: boolean;
+  toolPromptCompletedExplanation: string;
+  actionType: string;
   actionTarget: string;
   // actionTargetBoundingBox: BoundingBox;
   actionDescription: string;
   actionInput: string;
+  actionInputEditMode: "overwrite" | "append";
   actionScrollDirection: "up" | "down";
   actionExpectedOutcome: string;
   actionTargetVisualDescription: string;
   actionTargetPositionContext: string;
+  requestClarifyingInfo: boolean;
+  requestClarifyingInfoQuestion: string;
+  relevantData: { [key: string]: string };
+  revisedToolPrompt: string;
 }
 
 /**
@@ -398,4 +456,17 @@ export interface NLAction {
 export interface CodeSelectorByRelevance {
   selector: string;
   relevanceScore: number;
+}
+
+/**
+ * Interface representing a Clarifying Info Event Arguments.
+ */
+export interface ClarifyingInfoEventArgs {
+  message: string;
+  callback: (response: string) => void;
+}
+
+export interface QuestionAnswer {
+  question: string;
+  answer: string;
 }

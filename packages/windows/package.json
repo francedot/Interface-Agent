@@ -1,0 +1,45 @@
+{
+  "name": "@interface-agent/windows",
+  "version": "0.0.5",
+  "description": "Windows integration for Interface Agent, enabling powerful desktop automation and testing capabilities.",
+  "private": false,
+  "scripts": {
+    "build": "tsc && shx cp ./src/WinAutomation.psm1 ./lib/WinAutomation.psm1",
+    "test": "mocha",
+    "lint": "eslint 'src/**/*.{js,ts}'",
+    "format": "prettier --write 'src/**/*.{js,ts,json}'",
+    "prepare": "yarn run build",
+    "start": "node lib/index.js",
+    "console": "npx ts-node apps/console.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/francedot/interface-agent"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "InterfaceAgent",
+    "win",
+    "llm",
+    "windows",
+    "AI",
+    "langchain",
+    "gpt",
+    "chatgpt"
+  ],
+  "author": "Francesco Bonacci <francesco.bonacci@outlook.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@interface-agent/core": "^0.0.5"
+  },
+  "files": [
+    "lib/"
+  ],
+  "exports": {
+    ".": "./lib/index.js"
+  },
+  "main": "./lib/index.js",
+  "types": "lib/index.d.ts"
+}

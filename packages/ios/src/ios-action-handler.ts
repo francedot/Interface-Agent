@@ -1,21 +1,21 @@
-import { ActionType, BoundingBox, NLAction, NavAIGuide, NavAIGuidePage, calculateBoundingBoxCenter, transformBoundingBox } from "@navaiguide/core";
+import { ActionType, BoundingBox, NLAction, InterfaceAgent, InterfaceAgentPage, calculateBoundingBoxCenter, transformBoundingBox } from "@interface-agent/core";
 import { sendWdaCommand } from "./utils";
 import { sPrompt_Generate_Code_Selectors_iOS } from "./prompts/generate-code-selector";
 
 export class iOSActionHandler {
     private readonly wdioClient: WebdriverIO.Browser;
-    private readonly navAIGuide: NavAIGuide;
+    private readonly InterfaceAgent: InterfaceAgent;
     private readonly runCodeSelectorMaxRetries = 3;
 
-    constructor(wdioClient: WebdriverIO.Browser, navAIGuide: NavAIGuide) {
-        this.navAIGuide = navAIGuide;
+    constructor(wdioClient: WebdriverIO.Browser, InterfaceAgent: InterfaceAgent) {
+        this.InterfaceAgent = InterfaceAgent;
         this.wdioClient = wdioClient;
     }
 
-    public async performAction(nextAction: NLAction, currentPage: NavAIGuidePage): Promise<void> {
+    public async performAction(nextAction: NLAction, currentPage: InterfaceAgentPage): Promise<void> {
         switch (nextAction.actionType) {
             case 'tap':
-                const codeSelectorsResult = await this.navAIGuide.generateCodeSelectorsWithRetry_Agent({
+                const codeSelectorsResult = await this.InterfaceAgent.generateCodeSelectorsWithRetry_Agent({
                     prompt: sPrompt_Generate_Code_Selectors_iOS,
                     inputPage: currentPage,
                     nextAction: nextAction,
@@ -23,12 +23,12 @@ export class iOSActionHandler {
                     codeEvalFunc: async (codeSelector) => {
                       return await this.performActionTap(codeSelector);
                     },
-                  });
+                });
           
-                  if (!codeSelectorsResult.success) {
-                    console.log(`The code action was unsuccessful after ${this.runCodeSelectorMaxRetries} retries.`);
-                  }
-                  console.log(`The code action was successful.`);                break;
+                if (!codeSelectorsResult.success) {
+                console.log(`The code action was unsuccessful after ${this.runCodeSelectorMaxRetries} retries.`);
+                }
+                console.log(`The code action was successful.`);                break;
             case 'type':
                 await this.performActionTypeOnKeyboard(nextAction.actionInput);
                 break;
@@ -165,7 +165,7 @@ export class iOSActionHandler {
         return `//XCUIElementTypeKey[@name='${key}']`;
     }
 
-    public async performActionTapWithCoordinates(page: NavAIGuidePage, boundingBox: BoundingBox): Promise<void> {
+    public async performActionTapWithCoordinates(page: InterfaceAgentPage, boundingBox: BoundingBox): Promise<void> {
         const size = await this.wdioClient.getWindowSize();
         const transformedBoundingBox = transformBoundingBox(page.screens[0].screenSize, boundingBox, size);
         const { centerX, centerY } = calculateBoundingBoxCenter(transformedBoundingBox);

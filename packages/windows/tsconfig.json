@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": ["src/**/*"],
+  "compilerOptions": {
+    "outDir": "./lib",
+    "rootDir": "./src",
+    "paths": {
+      "@interface-agent/core": ["./packages/core/lib"]
+    },
+  },
+  
+}
