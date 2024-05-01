@@ -47,7 +47,7 @@ cd packages/ios
 npx run build-go-ios
 
 # If installed through the npm package:
-npm explore @InterfaceAgent/ios -- npm run build-go-ios
+npm explore @interface-agent/ios -- npm run build-go-ios
 ```
 
 #### 3. Appium
@@ -125,7 +125,7 @@ Next, let's exit UI Automation mode by holding the Volume Up and Down buttons si
 npm run run-wda -- --WDA_BUNDLE_ID=com.example.wdabundleid --WDA_TEST_RUNNER_BUNDLE_ID=com.example.wdabundleid --DEVICE_UDID=12345
 
 # If installed through the npm package:
-npm explore @InterfaceAgent/ios -- npm run run-wda -- --WDA_BUNDLE_ID=com.example.wdabundleid --WDA_TEST_RUNNER_BUNDLE_ID=com.example.wdabundleid --DEVICE_UDID=12345
+npm explore @interface-agent/ios -- npm run run-wda -- --WDA_BUNDLE_ID=com.example.wdabundleid --WDA_TEST_RUNNER_BUNDLE_ID=com.example.wdabundleid --DEVICE_UDID=12345
 ```
 
 If successful, you should see the device entering UI Automation mode again. What's changed? Using go-ios, it will technically make it possible to control the device from Linux and, soon, Windows (see the latest go-ios release).
@@ -156,6 +156,8 @@ await iAgent.runAsync({
     query: fitnessPlannerQuery
 });
 ```
+
+## 🎬 Demos
 
 <p align="center">
   <img align="center" width="1280" src="https://github.com/francedot/NavAIGuide-TS/assets/11706033/bdc79ec6-c05c-4fb4-a01a-0a4b3b802ce9" alt="30 days of fitness demo">
