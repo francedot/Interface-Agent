@@ -1,6 +1,6 @@
-# <img align="center" src="https://github.com/francedot/InterfaceAgent/blob/main/img/logo.png?raw=true" width="38"> InterfaceAgent-Core
+# <img align="center" src="../../img/logo.png" width="27"> Agent-Core
 
-Core package used to build AI agents with Interface Agent.
+Core package used to build AI agents with **InterfaceAgent**.
 
 ## 💻 Getting Started
 
@@ -40,3 +40,25 @@ Configure the necessary environment variables. For example, locally through `.en
   - `AZURE_AI_API_GPT4TURBOVISION_INSTANCE_NAME`: Instance Name for GPT-4 Turbo with Vision.
 
 You can also explicitly provide these variables as part of the constructor for the `InterfaceAgent` or `BaseInterfaceAgentAgent` class.
+
+
+#### 3. Interface-Agent Parameters
+
+1. **AMBIGUITY_HANDLING_SCORE**: This parameter controls the agent's confidence level during the planning and subsequent prediction stages. It determines whether the agent should make assumptions or seek further clarification from the user (or caller). A higher score indicates a greater inclination towards system autonomy, with a score of 1 signifying complete autonomy.
+
+#### 3. Configure Mixture of Models
+
+Through the same `env.local` file, you can select the vendor (OpenAI / Claude) and model for each stage of the AI Agent process.
+
+```bash
+OPENAI_API_KEY=...
+CLAUDE_AI_API_KEY=..
+AMBIGUITY_HANDLING_SCORE=1
+..
+TOOLS_PLANNER_MODEL=CLAUDE_3_HAIKU
+PREDICT_NEXT_ACTION_VISUAL_MODEL=GPT4_TURBO_VISION
+GENERATE_CODE_SELECTOR_MODEL=GPT35_TURBO
+WINDOW_DETECT_MODEL=CLAUDE_3_HAIKU # Windows only
+```
+
+
